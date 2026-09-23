@@ -1,5 +1,8 @@
-1. python -m pip install -r requirements.txt
-2. for frontend, go in terminal enter:
-cd frontend (press enter)
+1. in terminal enter: python -m pip install -r requirements.txt
+
+2. for frontend, go in terminal enter seperately:
+cd frontend 
 npm install
-npm run dev
+npm run dev 
+
+asdasdmkskmdka

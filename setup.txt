@@ -5,4 +5,12 @@ cd frontend
 npm install
 npm run dev 
 
-asdasdmkskmdka
+
+
+
+
+
+git add.
+git commit -m "ex"
+git branch -M main
+git push -u origin main

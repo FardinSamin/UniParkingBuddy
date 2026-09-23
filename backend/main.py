@@ -105,7 +105,7 @@ def run_api():
 
 
 #video source
-cap = cv2.VideoCapture('stockparkinglot2.mp4')
+cap = cv2.VideoCapture('stockvidsample2.mp4')
 if not cap.isOpened():
     raise RuntimeError("Could not open video — check the path/filename")
 

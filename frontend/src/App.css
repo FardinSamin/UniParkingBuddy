@@ -274,27 +274,52 @@ body {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 72px));
+  gap: 10px;
 }
 
 .dashboard-space {
-  aspect-ratio: 1;
-  border-radius: 6px;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  border: 2px solid;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 13px;
 }
 
 .dashboard-space.open {
-  background: #1A8A4A;
+  border-color: #1A8A4A;
+  background: #EAF7EF;
 }
 
 .dashboard-space.occupied {
-  background: #C0392B;
+  border-color: #C0392B ;
+  background: #FBEAEA;
+}
+
+.dashboard-space-id{
+  color: #0B0B0B;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 3px;
+}
+
+.dashboard-space-status {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.dashboard-space.open .dashboard-space-status {
+  color:#1A8A4A;
+}
+
+.dashboard-space-occupied .dashboard-space-status {
+  color: #C0392B;
 }
 
 .dashboard-legend {

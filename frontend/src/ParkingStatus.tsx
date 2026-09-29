@@ -76,9 +76,11 @@ function ParkingStatus() {
                 <div
                   key={space.id}
                   className={`dashboard-space ${space.occupied ? 'occupied' : 'open'}`}
-                  title={`Space ${space.id}`}
-                >
-                  {space.id}
+                  >
+                    <p className="dashboard-space-id">{space.id}</p>
+                    <p className="dashboard-space-status">
+                      {space.occupied ? 'Occupied' : 'Open'}
+                    </p>
                 </div>
               ))}
             </div>

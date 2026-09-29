@@ -1,4 +1,4 @@
-1. in terminal enter: python -m pip install -r requirements.txt
+1. (if required) in terminal enter: python -m pip install -r requirements.txt
 
 2. for frontend, go in terminal enter seperately:
 cd frontend 
@@ -14,3 +14,5 @@ git add.
 git commit -m "ex"
 git branch -M main
 git push -u origin main
+
+bgr for opencv colors instead of rgb

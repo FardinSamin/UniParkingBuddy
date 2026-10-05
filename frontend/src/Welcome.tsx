@@ -9,12 +9,13 @@ interface Lot{
     openCount: number
     totalCount: number
     path: string
+    
 }
 
 const lots: Lot[] = [
-  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 1, totalCount: 5, path: '/dashboard' },
-  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 1, totalCount: 5, path: '/dashboard' },
-  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 1, totalCount: 5, path: '/dashboard' },
+  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 1, totalCount: 5, path: '/parking-lot1' },
+  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 1, totalCount: 5, path: '/parking-lot2' },
+  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 1, totalCount: 5, path: '/parking-lot3' },
 ]
 
 

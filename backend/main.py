@@ -1,202 +1,193 @@
 import cv2
+from ultralytics import YOLO
 import pickle
 import numpy as np
 import threading
-from ultralytics import YOLO
 from flask import Flask, jsonify
 from flask_cors import CORS
 
+#camera Sources
+def make_camera(path):
+    return {
+        "source": cv2.VideoCapture(path),
+        "posList": [],
+        "current_points": [],
+        "last_boxes": [],
+        "frame_idx": 0,
+        "frame": None,
+    }
 
-#grab video and store inside of cap variable
-cap = cv2.VideoCapture('stockvidsample2.mp4')
-#raise error if video is not found
-if not cap.isOpened(): 
-    raise RuntimeError("Could not open video - check the path/filename")
+camera_captures = {
+    "camera_1": make_camera("footage/stockvidsample2.mp4"),
+    "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
+}
+
+#format video display window
+for i in camera_captures: 
+    cv2.namedWindow(i, cv2.WINDOW_NORMAL) #allows to manually resize window
+    cv2.resizeWindow(i, 1280, 720) #sets initial window size
 
 
-#for testing saved videos, delete for live video
-fps = cap.get(cv2.CAP_PROP_FPS)
-if fps <= 0:
-    fps = 30
-frame_delay = int(1000 / fps)
-
-
-#formatiting and controlling video display window
-cv2.namedWindow("image", cv2.WINDOW_NORMAL) #allows to manually resize window
-cv2.resizeWindow("image", 1280, 720) #sets initial window size
-
-
-#yolo model 
+#yolo model
 model = YOLO('yolo26n.pt')
 CARS = [2,3,7] #2=car, 3=motorcycle, 7=truck
+DETECT_EVERY = 30
 
 
-DETECT_EVERY = 30 #run yolo model every nth frame
-frame_idx=0 #keeps track of how many video frames have been processed
-last_boxes = [] #store the amount of bounding boxes of cars detected by yolo
+def pos_file(name):
+    return f"CarPos_{name}"
 
+def save_positions(name):
+    with open(pos_file(name), "wb") as f:
+        pickle.dump(camera_captures[name]["posList"], f)
 
-#parking Position drawing functionality
-try:
-    with open('CarPos', 'rb') as f:
-        posList = pickle.load(f)
-except FileNotFoundError:
-    posList = []
+for name, cam in camera_captures.items():
+    try:
+        with open(pos_file(name), "rb") as f:
+            cam["posList"] = pickle.load(f)
+    except FileNotFoundError:
+        pass
 
-current_points = []
 mode = "play"
 
-def save():
-    with open('CarPos', 'wb') as f:
-        pickle.dump(posList, f)
-
-def mouseClick(event, x, y, _flags, _params):
-    global current_points
-
-    if mode != "mark":
+def mouseClick(event, x, y, _flags, name):
+    if mode != "mark" or name not in camera_captures:
         return
+    cam = camera_captures[name]
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        current_points.append((x, y))
-
-        if len(current_points) == 4:
-            posList.append(current_points.copy())
-            current_points = []
-            save()
+        cam["current_points"].append((x, y))
+        if len(cam["current_points"]) == 4:
+            cam["posList"].append(cam["current_points"].copy())
+            cam["current_points"].clear()
+            save_positions(name)
 
     elif event == cv2.EVENT_RBUTTONDOWN:
-        for i, pts in enumerate(posList):
+        for idx, pts in enumerate(cam["posList"]):
             contour = np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
             if cv2.pointPolygonTest(contour, (float(x), float(y)), False) >= 0:
-                posList.pop(i)
-                save()
+                cam["posList"].pop(idx)
+                save_positions(name)
                 break
 
-cv2.setMouseCallback("image", mouseClick)
+for name in camera_captures:
+    cv2.setMouseCallback(name, mouseClick, name)
 
-#API SERVER
+
 app = Flask(__name__)
-CORS(app) #enables Cross-Region Resource Sharing, allows frontend to send requests to flask API
+CORS(app)
 
-latest_status = []
-latest_car_count = 0
+latest_status = {} 
 status_lock = threading.Lock()
 
-@app.route('/api/status')
-def get_status():
+@app.route('/api/status/<camera>')
+def get_status(camera):
     with status_lock:
-        return jsonify({
-            "cars_detected": latest_car_count,
-            "parking_spaces": latest_status
-        })
+        c = latest_status.get(camera)
+    if c is None:
+        return jsonify({"cars_detected": 0, "parking_spaces": []})
+    return jsonify({
+        "cars_detected": c["cars"],
+        "parking_spaces": [
+            {"id": s["id"], "occupied": not s["open"]} for s in c["spaces"]
+        ],
+    })
 
 def run_api():
     app.run(port=5000, debug=False, use_reloader=False)
 
 threading.Thread(target=run_api, daemon=True).start()
 
+
 while True:
-    #rewind function
-    success, frame = cap.read()
-    if not success:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, 0) #go back to first frame
-        frame_idx=0 #reset
-        last_boxes = [] #reset
-        continue
+    for name, cap in list(camera_captures.items()):
 
+        success, frame = cap["source"].read()
+        if not success:
+            cap["source"].set(cv2.CAP_PROP_POS_FRAMES, 0)
+            cap["frame_idx"] = 0
+            continue
+        cap["frame"] = frame
 
-    img = frame.copy() #create copy of current video frame and store it in img
+        if cap["frame_idx"] % DETECT_EVERY == 0:
+            results = model(frame, classes=CARS, conf=0.20, imgsz=1280, verbose=False)[0]
+            cap["last_boxes"] = []
+            for box in results.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cap["last_boxes"].append((x1, y1, x2, y2, float(box.conf[0])))
+        cap["frame_idx"] += 1
 
+        display = cap["frame"].copy()
 
-    if frame_idx % DETECT_EVERY == 0: #run yolo every detect_every frames
-        results = model(frame, classes=CARS, conf=0.25, imgsz=1280, verbose=False)[0]
-        last_boxes = []
+        #detections
+        for x1, y1, x2, y2, conf in cap["last_boxes"]:
+            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+            cv2.circle(display, (cx, cy), 6, (0, 0, 255), -1)
+            cv2.putText(display, f"{conf:.2f}", (cx + 10, cy - 5),
+                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (0, 255, 0), 2)
 
-        for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            last_boxes.append((x1, y1, x2, y2, float(box.conf[0])))
+        cv2.putText(display, f"Cars Detected: {len(cap['last_boxes'])}", (10, 32),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
+        #parking spaces & occupancy 
+        space_status = []
+        for i, pts in enumerate(cap["posList"]):
+            contour = np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
 
-    frame_idx += 1
+            occupied = any(
+                cv2.pointPolygonTest(contour, (float((x1 + x2) // 2), float((y1 + y2) // 2)), False) >= 0
+                for x1, y1, x2, y2, _ in cap["last_boxes"]
+            )
+            space_status.append({"id": i + 1, "open": not occupied})
 
-    #visual cue for detected vehicles
-    for x1, y1, x2, y2, conf in last_boxes:
-        cx = (x1 + x2) // 2
-        cy = (y1 + y2) // 2
-        cv2.circle(img, (cx, cy), 6, (0,0,225), -1) #display circle for each detection
+            if mode == "mark":
+                color = (255, 0, 0)
+            else:
+                color = (0, 0, 255) if occupied else (0, 255, 0)
 
-        #display confidence score
-        confidence_text = f"{conf:.2f}" #variable containing text format for the visual confidence score
-        cv2.putText(img, confidence_text, (cx+10, cy-5), 
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        
-    #display cars Detected
-    count_text = f"Cars Detected: {len(last_boxes)}" #variable containing cars count
-    cv2.putText(img, count_text, (10, 32),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            cv2.polylines(display, [contour], True, color, 2)
+            lx = int(np.mean(contour[:, 0, 0]))
+            ly = int(np.mean(contour[:, 0, 1]))
+            cv2.putText(display, str(i + 1), (lx, ly),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-    # Draw saved parking polygons and check occupancy
-    status = []
-    for i, pts in enumerate(posList):
-        contour = np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
-
-        # always compute occupancy so the dashboard keeps updating in either mode
-        occupied = False
-        for x1, y1, x2, y2, conf in last_boxes:
-            bx = float((x1 + x2) // 2)
-            by = float((y1 + y2) // 2)
-            if cv2.pointPolygonTest(contour, (bx, by), False) >= 0:
-                occupied = True
-                break
-
-        status.append({"id": i + 1, "occupied": occupied})
+        with status_lock:
+            latest_status[name] = {
+                "cars": len(cap["last_boxes"]),
+                "spaces": space_status,
+            }
 
         if mode == "mark":
-            color = (255, 0, 0)
-        else:
-            color = (0, 0, 255) if occupied else (0, 255, 0)
+            for pt in cap["current_points"]:
+                cv2.circle(display, pt, 3, (0, 255, 255), -1)
+            if len(cap["current_points"]) > 1:
+                cv2.polylines(display, [np.array(cap["current_points"], dtype=np.int32)],
+                              False, (0, 255, 255), 2)
 
-        cv2.polylines(img, [contour], isClosed=True, color=color, thickness=2)
+        cv2.putText(display, f"Mode: {mode} (press 'm' to toggle)", (10, 65),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
 
-        lx = int(np.mean(contour[:, 0, 0]))
-        ly = int(np.mean(contour[:, 0, 1]))
-        cv2.putText(img, str(i + 1), (lx, ly),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.imshow(name, display)
 
-    # outside the for loop, so it runs every frame
-    with status_lock:
-        latest_status = status
-        latest_car_count = len(last_boxes)
+    key = cv2.waitKey(1) & 0xFF
 
-
-    # Draw points while creating a polygon
-    if mode == "mark":
-        for pt in current_points:
-            cv2.circle(img, pt, 3, (0, 255, 255), -1)
-        if len(current_points) > 1:
-            cv2.polylines(img, [np.array(current_points, dtype=np.int32)], isClosed=False, color=(0, 255, 255), thickness=2)
-
-    cv2.putText(img, f"Mode: {mode} (press 'm' to toggle)",
-            (10, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-
-
-
-
-
-
-
-
-
-
-    cv2.imshow("image", img) #takes frame stored in img and puts it in window named "image"
-
-    #close video tab function by pressing 'q', or clicking the X (close button)
-    key = cv2.waitKey(frame_delay) & 0xFF
-    if key == ord('q') or cv2.getWindowProperty("image", cv2.WND_PROP_VISIBLE) < 1:
+    if key == ord('q'):
         break
-    elif key == ord('m'):
+    if key == ord('m'):
         mode = "mark" if mode == "play" else "play"
-        current_points = []
+        for c in camera_captures.values():
+            c["current_points"].clear()
 
-cap.release()
+    for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
+        if key == k:
+            removed = camera_captures.pop(cam_name, None)
+            if removed is not None:
+                removed["source"].release()
+                cv2.destroyWindow(cam_name)
+
+    if not camera_captures:
+        break
+
+for c in camera_captures.values():
+    c["source"].release()
 cv2.destroyAllWindows()

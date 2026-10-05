@@ -6,7 +6,7 @@ import threading
 from flask import Flask, jsonify
 from flask_cors import CORS
 
-#camera Sources
+#camera sources
 def make_camera(path):
     return {
         "source": cv2.VideoCapture(path),
@@ -17,6 +17,7 @@ def make_camera(path):
         "frame": None,
     }
 
+#add or remove if needed
 camera_captures = {
     "camera_1": make_camera("footage/stockvidsample2.mp4"),
     "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),

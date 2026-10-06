@@ -19,7 +19,7 @@ interface StatusResponse {
 }
 
 const lots: Lot[] = [
-  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 1, totalCount: 5, path: '/parking-lot1', camera: 'camera_1' },
+  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 0, totalCount: 0, path: '/parking-lot1', camera: 'camera_1' },
   { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 1, totalCount: 5, path: '/parking-lot2' , camera: 'camera_2'}, //mm maybe leeave the 1:5 as fallback i'll see or maybe it should show unavailable ^^
   { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 1, totalCount: 5, path: '/parking-lot3' }, //no cam so left alone 
 ]

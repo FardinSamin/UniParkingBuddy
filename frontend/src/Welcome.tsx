@@ -1,4 +1,5 @@
 //Home page for the web app :)
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
 
@@ -9,13 +10,18 @@ interface Lot{
     openCount: number
     totalCount: number
     path: string
+    camera?: string
     
+}
+interface StatusResponse {
+    cars_detected: number 
+    parking_spaces: { id: number; occupied: boolean } []
 }
 
 const lots: Lot[] = [
-  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 1, totalCount: 5, path: '/parking-lot1' },
-  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 1, totalCount: 5, path: '/parking-lot2' },
-  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 1, totalCount: 5, path: '/parking-lot3' },
+  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 1, totalCount: 5, path: '/parking-lot1', camera: 'camera_1' },
+  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 1, totalCount: 5, path: '/parking-lot2' , camera: 'camera_2'}, //mm maybe leeave the 1:5 as fallback i'll see or maybe it should show unavailable ^^
+  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 1, totalCount: 5, path: '/parking-lot3' }, //no cam so left alone 
 ]
 
 
@@ -27,6 +33,39 @@ function getStatus(open:number, total: number) {
 
 function Welcome(){
     const navigate = useNavigate()
+    const [live, setLive]=useState<Record<string, { open: number; total: number }>>({})
+
+    useEffect(() => {
+        const load = () => {
+            lots.forEach((lot) => {
+                if(!lot.camera) return
+                fetch(`http://localhost:5000/api/status/${lot.camera}`)
+                    .then((res) => {
+                        if(!res.ok) {
+                            throw new Error('failed to fetch')
+                        
+                        }
+                        return res.json()
+                    }
+                )
+                .then((data: StatusResponse) => {
+                    const total = data.parking_spaces.length 
+                    const open = data.parking_spaces.filter((s) => !s.occupied).length
+                    setLive((prev) => ({ ...prev, [lot.id]: { open, total }}))
+                }
+                )
+                .catch(() => {})
+            }
+        )
+        }
+        load()
+        const interval = setInterval(load, 2000)
+        return() => clearInterval(interval)
+
+
+    },[])
+
+
 
     return (
         <div className="welcome-page">
@@ -45,7 +84,10 @@ function Welcome(){
 
             <div className="welcome-lots">
                 {lots.map((lot) => {
-                    const status = getStatus(lot.openCount, lot.totalCount)
+                    const counts = live[lot.id]
+                    const open = counts ? counts.open : lot.openCount
+                    const total = counts ? counts.total : lot.totalCount
+                    const status = getStatus(open, total)
                     return (
                         <button
                         key={lot.id}
@@ -63,7 +105,7 @@ function Welcome(){
                             <div className="lot-card-text">
                                 <p className="lot-card-name">{lot.name}</p>
                                 <p className="lot-card-count">
-                                    {lot.openCount} of {lot.totalCount} open
+                                    {open} of {total} open
                                 </p>
                             </div>
                         </button>

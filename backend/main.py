@@ -186,6 +186,9 @@ while True:
                 removed["source"].release()
                 cv2.destroyWindow(cam_name)
 
+                with status_lock:
+                    latest_status.pop(cam_name, None)
+
     if not camera_captures:
         break
 

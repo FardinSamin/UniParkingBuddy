@@ -54,7 +54,9 @@ function Welcome(){
                     setLive((prev) => ({ ...prev, [lot.id]: { open, total }}))
                 }
                 )
-                .catch(() => {})
+                .catch(() => {
+                    setLive((prev) => ({ ...prev, [lot.id]: { open: 0, total: 0 } }))
+                })
             }
         )
         }

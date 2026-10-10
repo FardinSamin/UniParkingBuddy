@@ -13,6 +13,7 @@ import psycopg
 
 from backend.occupancy_repository import OccupancyRepository, SCHEMA_PATH
 from backend.occupancy_writer import persist_processed_observation
+from backend.occupancy_contract import accept_occupancy_update
 
 
 def sample_config():
@@ -303,6 +304,52 @@ class PostgreSQLRepositoryTests(unittest.TestCase):
             with self.subTest(limit=limit):
                 with self.assertRaises(ValueError):
                     self.repository.space_history("lot1", "2", limit)
+
+
+    def test_invalid_trusted_batch_never_corrupts_last_valid_state(self):
+        self.register()
+        original_time = datetime.now(timezone.utc)
+        accept_occupancy_update(self.repository, {
+            "lot_id": "lot1", "observed_at": original_time,
+            "spaces": [
+                {"space_id": "2", "status": "AVAILABLE"},
+                {"space_id": "7", "status": "OCCUPIED"},
+            ],
+        })
+        valid_summary = self.repository.lot_summary("lot1")
+        before_history = self.repository.space_history("lot1", "2")
+
+        with self.assertRaises(ValueError):
+            accept_occupancy_update(self.repository, {
+                "lot_id": "lot1",
+                "observed_at": original_time + timedelta(seconds=1),
+                "spaces": [
+                    {"space_id": "2", "status": "OCCUPIED"},
+                    {"space_id": "999", "status": "AVAILABLE"},
+                ],
+            })
+        self.assertEqual(self.repository.lot_summary("lot1"), valid_summary)
+        self.assertEqual(self.repository.space_history("lot1", "2"), before_history)
+
+    def test_valid_trusted_batch_commits_current_and_history_together(self):
+        self.register()
+        time = datetime.now(timezone.utc)
+        accept_occupancy_update(self.repository, {
+            "lot_id": "lot1", "observed_at": time,
+            "spaces": [
+                {"space_id": "2", "status": "OCCUPIED"},
+                {"space_id": "7", "status": "AVAILABLE"},
+            ],
+        })
+        summary = self.repository.lot_summary("lot1")
+        self.assertTrue(summary["complete"])
+        self.assertEqual(summary["occupied_spaces"], 1)
+        self.assertEqual(summary["available_spaces"], 1)
+        self.assertEqual(
+            self.repository.space_history("lot1", "2")[0],
+            {"status": "OCCUPIED", "observed_at": time},
+        )
+
 
 
 if __name__ == "__main__":

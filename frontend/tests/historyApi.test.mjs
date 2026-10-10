@@ -33,7 +33,7 @@ const goodTrends = {
 test('historical trends load only for the selected lot and window', async () => {
   await withFetch(
     async (url) => {
-      assert.equal(url, 'http://localhost:5000/api/trends/lot1?days=7')
+      assert.equal(url, '/api/trends/lot1?days=7')
       return reply(goodTrends)
     },
     async () => {

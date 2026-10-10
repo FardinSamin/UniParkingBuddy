@@ -63,6 +63,21 @@ merged. Ensure the committed footage files, `yolo26n.pt`, and
 10. Confirm the app is usable with keyboard navigation, visible focus,
     readable labels in addition to colors, and on a narrow viewport.
 
+## Reproducible manually verified accuracy workflow
+
+The ground-truth evaluation tools and full labeling guide are in
+[ACCURACY_EVALUATION.md](ACCURACY_EVALUATION.md).
+
+Use `python -m backend.evaluate_accuracy prepare` to sample frames
+systematically and generate preview images with **only** configured-space
+outlines. A reviewer must independently label each `AVAILABLE` /
+`OCCUPIED` condition before running and scoring the YOLO predictions.
+Unverifiable images can be explicitly excluded from the denominator but
+must be counted. Incomplete annotations produce **no accuracy claim**.
+
+Unit tests use deliberately synthetic labels to verify the evaluator; they
+are not evidence of the system's real detection accuracy.
+
 ## Controlled accuracy and update-time evidence
 
 **Accuracy:** Record the number of configured-space classification results

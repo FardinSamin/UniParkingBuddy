@@ -4,6 +4,12 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 
+def invalidate_camera_status(camera_name, latest_status, status_lock):
+    """Discard a previously published result when frames stop being valid."""
+    with status_lock:
+        latest_status.pop(camera_name, None)
+
+
 def create_status_app(camera_captures, latest_status, status_lock):
     """Expose current occupancy only for active, processed cameras.
 

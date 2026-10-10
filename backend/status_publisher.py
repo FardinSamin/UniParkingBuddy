@@ -7,10 +7,12 @@ so it can be exercised against a real disposable PostgreSQL instance.
 from datetime import datetime, timezone
 
 if __package__:
-    from .occupancy_writer import persist_processed_observation
+    from .occupancy_writer import CAMERA_LOTS, persist_processed_observation
+    from .occupancy_contract import snapshot_from_cv
     from .status_api import invalidate_camera_status
 else:
-    from occupancy_writer import persist_processed_observation
+    from occupancy_writer import CAMERA_LOTS, persist_processed_observation
+    from occupancy_contract import snapshot_from_cv
     from status_api import invalidate_camera_status
 
 
@@ -40,13 +42,16 @@ def publish_space_result(
         invalidate_camera_status(camera_name, latest_status, status_lock)
         return False
 
-    if repository is not None:
-        timestamp = observed_at if observed_at is not None else datetime.now(timezone.utc)
-        try:
+    timestamp = observed_at if observed_at is not None else datetime.now(timezone.utc)
+    try:
+        if repository is None:
+            # Even the no-database demo must reject malformed CV results.
+            snapshot_from_cv(camera_name, space_status, timestamp, CAMERA_LOTS)
+        else:
             persist_processed_observation(repository, camera_name, space_status, timestamp)
-        except Exception:
-            invalidate_camera_status(camera_name, latest_status, status_lock)
-            raise
+    except Exception:
+        invalidate_camera_status(camera_name, latest_status, status_lock)
+        raise
 
     with status_lock:
         latest_status[camera_name] = {

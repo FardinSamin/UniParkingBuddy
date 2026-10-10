@@ -148,9 +148,8 @@ while True:
         # Use one spatial association result for both the occupancy counts
         # and the visual markers. A vehicle matches at most one space.
         contours = [
-            np.array(points, dtype=np.int32).reshape((-1, 1, 2))
+            np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
             for space in cap["config"]["spaces"]
-            for points in [space["points"]]
         ]
         matched_spaces, occupied_spaces = assign_detections_to_spaces(
             cap["last_boxes"], contours

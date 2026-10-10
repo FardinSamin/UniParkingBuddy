@@ -354,3 +354,8 @@ body {
 .error {
   color: red;
 }
+/* Monitored lots without a camera are visible but not interactive. */
+.lot-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

@@ -46,6 +46,13 @@ class RealParkingMarkingSmoke(unittest.TestCase):
                     report["raw_geometry_candidate_count"]
                 )
                 self.assertTrue(report["ground_filter_enabled"])
+                print(
+                    f"{video}: raw_lines={report['detected_paint_like_line_count']} "
+                    f"ground_supported_lines={report['ground_supported_line_count']} "
+                    f"raw_quads={report['raw_geometry_candidate_count']} "
+                    f"filtered_quads={report['geometry_candidate_count']}",
+                    flush=True,
+                )
                 self.assertEqual(len(report["sampled_frame_indices"]), 3)
                 self.assertTrue(all(
                     candidate["review_state"] == "unverified" for candidate

@@ -50,3 +50,34 @@ jobs:
         run: python -m pip install numpy opencv-python-headless flask flask-cors
       - name: Run backend unit tests
         run: python -m unittest discover -s backend/tests -p 'test_*.py' -v
+
+  postgresql-integration-tests:
+    name: PostgreSQL persistence integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: uniparkingbuddy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d uniparkingbuddy_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/uniparkingbuddy_test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install database test driver
+        run: python -m pip install 'psycopg[binary]>=3.2,<4'
+      - name: Test PostgreSQL schema and repository transactions
+        run: python -m unittest discover -s backend/tests -p 'test_occupancy_repository.py' -v

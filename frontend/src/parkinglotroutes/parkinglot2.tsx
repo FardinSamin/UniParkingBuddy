@@ -58,9 +58,14 @@ function ParkingLot2() {
             <h1 className="dashboard-title">Parking Status</h1>
           </div>
 
-          <button className="dashboard-back-btn" onClick={() => navigate('/')}>
-          ← All lots
-          </button>
+          <div className="history-header-actions">
+            <button className="dashboard-back-btn" onClick={() => navigate('/history/lot2')}>
+              Historical trends
+            </button>
+            <button className="dashboard-back-btn" onClick={() => navigate('/')}>
+              ← All lots
+            </button>
+          </div>
         </div>
       </div>
 

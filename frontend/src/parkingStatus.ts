@@ -7,6 +7,8 @@ export interface ParkingSpaceStatus {
 export interface ParkingStatusResponse {
   cars_detected: number
   parking_spaces: ParkingSpaceStatus[]
+  vehicles_in_spaces?: number
+  vehicles_outside_spaces?: number
 }
 
 function isParkingSpace(value: unknown): value is ParkingSpaceStatus {
@@ -43,7 +45,31 @@ function parseParkingStatus(value: unknown): ParkingStatusResponse {
     throw new Error('Duplicate parking-space identifiers')
   }
 
-  return { cars_detected: data.cars_detected, parking_spaces: spaces }
+  const hasVehicleBreakdown =
+    data.vehicles_in_spaces !== undefined || data.vehicles_outside_spaces !== undefined
+
+  if (hasVehicleBreakdown) {
+    if (
+      typeof data.vehicles_in_spaces !== 'number' ||
+      !Number.isInteger(data.vehicles_in_spaces) ||
+      data.vehicles_in_spaces < 0 ||
+      typeof data.vehicles_outside_spaces !== 'number' ||
+      !Number.isInteger(data.vehicles_outside_spaces) ||
+      data.vehicles_outside_spaces < 0 ||
+      data.vehicles_in_spaces + data.vehicles_outside_spaces !== data.cars_detected
+    ) {
+      throw new Error('Invalid vehicle breakdown')
+    }
+  }
+
+  return {
+    cars_detected: data.cars_detected,
+    parking_spaces: spaces,
+    ...(hasVehicleBreakdown ? {
+      vehicles_in_spaces: data.vehicles_in_spaces as number,
+      vehicles_outside_spaces: data.vehicles_outside_spaces as number,
+    } : {}),
+  }
 }
 
 export async function fetchParkingStatus(camera: string): Promise<ParkingStatusResponse> {

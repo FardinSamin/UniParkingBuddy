@@ -5,6 +5,7 @@ import numpy as np
 import threading
 from flask import Flask, jsonify
 from flask_cors import CORS
+from space_matching import assign_detections_to_spaces
 
 #camera sources
 def make_camera(path):
@@ -95,6 +96,8 @@ def get_status(camera):
 
     return jsonify({
         "cars_detected": c["cars"],
+        "vehicles_in_spaces": c["in_space_vehicles"],
+        "vehicles_outside_spaces": c["outside_space_vehicles"],
         "parking_spaces": [
             {"id": s["id"], "occupied": not s["open"]} for s in c["spaces"]
         ],
@@ -126,41 +129,71 @@ while True:
 
         display = cap["frame"].copy()
 
-        #detections
-        for x1, y1, x2, y2, conf in cap["last_boxes"]:
+        # Use one spatial association result for both the occupancy counts
+        # and the visual markers. A vehicle matches at most one space.
+        contours = [
+            np.array(points, dtype=np.int32).reshape((-1, 1, 2))
+            for points in cap["posList"]
+        ]
+        matched_spaces, occupied_spaces = assign_detections_to_spaces(
+            cap["last_boxes"], contours
+        )
+
+        # Detected vehicles outside the marked spaces remain visible,
+        # but do not change occupied-space counts.
+        in_spaces = sum(index is not None for index in matched_spaces)
+        outside_spaces = len(matched_spaces) - in_spaces
+
+        for (x1, y1, x2, y2, conf), space_index in zip(
+            cap["last_boxes"], matched_spaces
+        ):
+            if space_index is None:
+                color = (0, 255, 255)  # yellow: outside marked spaces (BGR)
+                label = f"OUTSIDE SPACE {conf:.2f}"
+            else:
+                color = (0, 0, 255)  # red: matched to a space (BGR)
+                label = f"SPACE {space_index + 1} {conf:.2f}"
+
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-            cv2.circle(display, (cx, cy), 6, (0, 0, 255), -1)
-            cv2.putText(display, f"{conf:.2f}", (cx + 10, cy - 5),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (0, 255, 0), 2)
-
-        cv2.putText(display, f"Cars Detected: {len(cap['last_boxes'])}", (10, 32),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-
-        #parking spaces & occupancy 
-        space_status = []
-        for i, pts in enumerate(cap["posList"]):
-            contour = np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
-
-            occupied = any(
-                cv2.pointPolygonTest(contour, (float((x1 + x2) // 2), float((y1 + y2) // 2)), False) >= 0
-                for x1, y1, x2, y2, _ in cap["last_boxes"]
+            cv2.rectangle(display, (x1, y1), (x2, y2), color, 2)
+            cv2.circle(display, (cx, cy), 5, color, -1)
+            cv2.putText(
+                display, label, (max(0, x1), max(18, y1 - 6)),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
             )
+
+        cv2.putText(
+            display, f"Vehicles Detected: {len(cap['last_boxes'])}", (10, 32),
+            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
+        )
+        cv2.putText(
+            display, f"In spaces: {in_spaces} | Outside spaces: {outside_spaces}",
+            (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
+        )
+
+        space_status = []
+        for i, contour in enumerate(contours):
+            occupied = occupied_spaces[i]
             space_status.append({"id": i + 1, "open": not occupied})
 
             if mode == "mark":
-                color = (255, 0, 0)
+                color = (255, 0, 0)  # blue while marking (BGR)
             else:
                 color = (0, 0, 255) if occupied else (0, 255, 0)
 
             cv2.polylines(display, [contour], True, color, 2)
             lx = int(np.mean(contour[:, 0, 0]))
             ly = int(np.mean(contour[:, 0, 1]))
-            cv2.putText(display, str(i + 1), (lx, ly),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(
+                display, str(i + 1), (lx, ly),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
+            )
 
         with status_lock:
             latest_status[name] = {
                 "cars": len(cap["last_boxes"]),
+                "in_space_vehicles": in_spaces,
+                "outside_space_vehicles": outside_spaces,
                 "spaces": space_status,
             }
 

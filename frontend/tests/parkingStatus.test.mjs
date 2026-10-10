@@ -87,3 +87,55 @@ test('network failures are unavailable', async () => {
     async () => assert.rejects(fetchParkingStatus('camera_1')),
   )
 })
+
+test('valid inside/outside breakdown is preserved', async () => {
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 3,
+      vehicles_in_spaces: 1,
+      vehicles_outside_spaces: 2,
+      parking_spaces: [{ id: 1, occupied: true }, { id: 2, occupied: false }],
+    }),
+    async () => {
+      const data = await fetchParkingStatus('camera_1')
+      assert.equal(data.vehicles_in_spaces, 1)
+      assert.equal(data.vehicles_outside_spaces, 2)
+    },
+  )
+})
+
+test('vehicle breakdown is optional for older backend responses', async () => {
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 1,
+      parking_spaces: [{ id: 1, occupied: true }],
+    }),
+    async () => {
+      const data = await fetchParkingStatus('camera_1')
+      assert.equal(data.vehicles_outside_spaces, undefined)
+    },
+  )
+})
+
+test('inconsistent vehicle breakdown is rejected', async () => {
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 2,
+      vehicles_in_spaces: 1,
+      vehicles_outside_spaces: 2,
+      parking_spaces: [{ id: 1, occupied: true }],
+    }),
+    async () => assert.rejects(fetchParkingStatus('camera_1')),
+  )
+})
+
+test('partial breakdown without both values is rejected', async () => {
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 2,
+      vehicles_outside_spaces: 1,
+      parking_spaces: [{ id: 1, occupied: true }],
+    }),
+    async () => assert.rejects(fetchParkingStatus('camera_1')),
+  )
+})

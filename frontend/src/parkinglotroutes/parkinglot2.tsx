@@ -7,6 +7,7 @@ function ParkingLot2() {
   const [spaces, setSpaces] = useState<ParkingSpaceStatus[]>([])
   const [loading, setLoading] = useState(true)
   const [carCount, setCarCount] = useState(0)
+  const [outsideCount, setOutsideCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
@@ -23,6 +24,7 @@ function ParkingLot2() {
           if (!active) return
           setSpaces(data.parking_spaces)
           setCarCount(data.cars_detected)
+          setOutsideCount(data.vehicles_outside_spaces ?? null)
           setError(null)
           setLoading(false)
         })
@@ -71,9 +73,16 @@ function ParkingLot2() {
           <>
             <div className="dashboard-stats">
               <div className="stat-card">
-                <p className="stat-label">Cars detected</p>
+                <p className="stat-label">Vehicles detected</p>
                 <p className="stat-value">{carCount}</p>
               </div>
+
+              {outsideCount !== null && (
+                <div className="stat-card">
+                  <p className="stat-label">Outside marked spaces</p>
+                  <p className="stat-value">{outsideCount}</p>
+                </div>
+              )}
 
               <div className="stat-card">
                 <p className="stat-label">Open now</p>

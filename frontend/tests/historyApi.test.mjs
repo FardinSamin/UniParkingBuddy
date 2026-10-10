@@ -157,3 +157,12 @@ test('empty space history requires has_history=false', async () => {
     async () => assert.rejects(fetchSpaceHistory('lot1', '7')),
   )
 })
+
+test('historical percentage must agree with observation counts', async () => {
+  await withFetch(
+    async () => reply({ ...goodTrends, hourly: [
+      { hour_utc: 13, observations: 4, occupied_observations: 1, occupied_percent: 90 },
+    ] }),
+    async () => assert.rejects(fetchTrends('lot1')),
+  )
+})

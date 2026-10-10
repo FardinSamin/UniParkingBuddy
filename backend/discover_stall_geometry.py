@@ -97,7 +97,8 @@ def _perpendicular_distance(first, second):
         dtype=float
     )
     u = _direction(first)
-    return abs(float(np.cross(u, mid_b - mid_a)))
+    offset = mid_b - mid_a
+    return abs(float(u[0] * offset[1] - u[1] * offset[0]))
 
 
 def _consolidate_segments(lines, tolerance=7):

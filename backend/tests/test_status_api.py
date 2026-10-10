@@ -137,8 +137,10 @@ class StatusApiTests(unittest.TestCase):
         # launch an HTTP server or block in the OpenCV display loop.
         import importlib
         from unittest.mock import patch
-        with patch("cv2.VideoCapture", side_effect=AssertionError("opened video")), \\
-             patch("cv2.namedWindow", side_effect=AssertionError("opened GUI")):
+        with (
+            patch("cv2.VideoCapture", side_effect=AssertionError("opened video")),
+            patch("cv2.namedWindow", side_effect=AssertionError("opened GUI")),
+        ):
             module = importlib.import_module("backend.main")
         self.assertTrue(callable(module.main))
         self.assertFalse(hasattr(module, "camera_captures"))

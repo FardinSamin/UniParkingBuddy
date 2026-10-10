@@ -2,26 +2,24 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './App.css'
+import { fetchParkingStatus } from './parkingStatus'
 
 interface Lot{
     id: string
     name: string
     gradient: string
-    openCount: number
-    totalCount: number
     path: string
     camera?: string
     
 }
-interface StatusResponse {
-    cars_detected: number 
-    parking_spaces: { id: number; occupied: boolean } []
-}
+type LiveAvailability =
+    | { state: 'ready'; open: number; total: number }
+    | { state: 'unavailable' }
 
 const lots: Lot[] = [
-  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', openCount: 0, totalCount: 0, path: '/parking-lot1', camera: 'camera_1' },
-  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', openCount: 0, totalCount: 0, path: '/parking-lot2' , camera: 'camera_2'}, //mm maybe leeave the 1:5 as fallback i'll see or maybe it should show unavailable ^^
-  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', openCount: 0, totalCount: 0, path: '/parking-lot3' }, //no cam so left alone 
+  { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', path: '/parking-lot1', camera: 'camera_1' },
+  { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', path: '/parking-lot2', camera: 'camera_2' },
+  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', path: '/parking-lot3' }, 
 ]
 
 
@@ -33,39 +31,39 @@ function getStatus(open:number, total: number) {
 
 function Welcome(){
     const navigate = useNavigate()
-    const [live, setLive]=useState<Record<string, { open: number; total: number }>>({})
+    const [live, setLive] = useState<Record<string, LiveAvailability>>({})
 
     useEffect(() => {
+        let active = true
+        const requestsInProgress = new Set<string>()
+
         const load = () => {
             lots.forEach((lot) => {
-                if(!lot.camera) return
-                fetch(`http://localhost:5000/api/status/${lot.camera}`)
-                    .then((res) => {
-                        if(!res.ok) {
-                            throw new Error('failed to fetch')
-                        
-                        }
-                        return res.json()
-                    }
-                )
-                .then((data: StatusResponse) => {
-                    const total = data.parking_spaces.length 
-                    const open = data.parking_spaces.filter((s) => !s.occupied).length
-                    setLive((prev) => ({ ...prev, [lot.id]: { open, total }}))
-                }
-                )
-                .catch(() => {
-                    setLive((prev) => ({ ...prev, [lot.id]: { open: 0, total: 0 } }))
-                })
-            }
-        )
+                if (!lot.camera || requestsInProgress.has(lot.id)) return
+
+                requestsInProgress.add(lot.id)
+                fetchParkingStatus(lot.camera)
+                    .then((data) => {
+                        if (!active) return
+                        const total = data.parking_spaces.length
+                        const open = data.parking_spaces.filter((space) => !space.occupied).length
+                        setLive((prev) => ({ ...prev, [lot.id]: { state: 'ready', open, total } }))
+                    })
+                    .catch(() => {
+                        if (!active) return
+                        setLive((prev) => ({ ...prev, [lot.id]: { state: 'unavailable' } }))
+                    })
+                    .finally(() => requestsInProgress.delete(lot.id))
+            })
         }
+
         load()
         const interval = setInterval(load, 2000)
-        return() => clearInterval(interval)
-
-
-    },[])
+        return () => {
+            active = false
+            clearInterval(interval)
+        }
+    }, [])
 
 
 
@@ -86,13 +84,15 @@ function Welcome(){
 
             <div className="welcome-lots">
                 {lots.map((lot) => {
-                    const counts = live[lot.id]
-                    const open = counts ? counts.open : lot.openCount
-                    const total = counts ? counts.total : lot.totalCount
+                    const availability = live[lot.id]
                     const disabled = !lot.camera
                     const status = disabled
                         ? { label: 'COMING SOON', bg: '#E9E6DF', color: '#5A5A56' }
-                        : getStatus(open, total)
+                        : availability?.state === 'ready'
+                            ? getStatus(availability.open, availability.total)
+                            : availability?.state === 'unavailable'
+                                ? { label: 'UNAVAILABLE', bg: '#E9E6DF', color: '#5A5A56' }
+                                : { label: 'LOADING', bg: '#FFF3D6', color: '#B8860B' }
                     return (
                         <button
                         key={lot.id}
@@ -111,7 +111,13 @@ function Welcome(){
                             <div className="lot-card-text">
                                 <p className="lot-card-name">{lot.name}</p>
                                 <p className="lot-card-count">
-                                    {disabled ? 'Monitoring not available yet' : `${open} of ${total} open`}
+                                    {disabled
+                                        ? 'Monitoring not available yet'
+                                        : availability?.state === 'ready'
+                                            ? `${availability.open} of ${availability.total} open`
+                                            : availability?.state === 'unavailable'
+                                                ? 'Current status unavailable'
+                                                : 'Checking availability...'}
                                 </p>
                             </div>
                         </button>

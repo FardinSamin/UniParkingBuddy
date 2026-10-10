@@ -83,10 +83,16 @@ status_lock = threading.Lock()
 
 @app.route('/api/status/<camera>')
 def get_status(camera):
+    if camera not in camera_captures:
+        return jsonify({"error": "Camera is not configured or active"}), 404
+
     with status_lock:
         c = latest_status.get(camera)
     if c is None:
-        return jsonify({"cars_detected": 0, "parking_spaces": []})
+        return jsonify({"error": "Parking status is not ready"}), 503
+    if not c["spaces"]:
+        return jsonify({"error": "No configured parking spaces available"}), 503
+
     return jsonify({
         "cars_detected": c["cars"],
         "parking_spaces": [

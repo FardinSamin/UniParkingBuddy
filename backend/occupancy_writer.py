@@ -4,7 +4,10 @@ Only anonymous per-space AVAILABLE/OCCUPIED states are persisted; vehicle
 detection boxes, people, plates and video frames are never passed to the DB.
 """
 
-from datetime import datetime
+if __package__:
+    from .occupancy_contract import accept_occupancy_update, snapshot_from_cv
+else:
+    from occupancy_contract import accept_occupancy_update, snapshot_from_cv
 
 
 CAMERA_LOTS = {
@@ -23,29 +26,6 @@ def initialize_lots(repository, camera_captures):
 
 
 def persist_processed_observation(repository, camera, space_status, observed_at):
-    """Write one fresh CV inference result, not repeated cached-frame results."""
-    if camera not in CAMERA_LOTS:
-        raise ValueError("Unknown monitored camera")
-    if not isinstance(space_status, list) or not space_status:
-        raise ValueError("No configured space observations to persist")
-    if not isinstance(observed_at, datetime):
-        raise ValueError("A timestamp is required")
-
-    seen = set()
-    observations = []
-    for space in space_status:
-        if not isinstance(space, dict) or set(space) != {"id", "open"}:
-            raise ValueError("Unexpected processed space status")
-        space_id = space["id"]
-        if type(space_id) is not int or space_id <= 0 or type(space["open"]) is not bool:
-            raise ValueError("Invalid processed space ID or state")
-        if space_id in seen:
-            raise ValueError("Duplicate processed space ID")
-        seen.add(space_id)
-        observations.append({
-            "space_id": str(space_id),
-            "status": "AVAILABLE" if space["open"] else "OCCUPIED",
-        })
-
-    lot_id, _ = CAMERA_LOTS[camera]
-    repository.record_observations(lot_id, observations, observed_at)
+    """Accept a fresh CV result only after strict domain-contract validation."""
+    snapshot = snapshot_from_cv(camera, space_status, observed_at, CAMERA_LOTS)
+    accept_occupancy_update(repository, snapshot)

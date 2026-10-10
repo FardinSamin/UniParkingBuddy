@@ -116,6 +116,28 @@ space IDs differ, startup fails rather than silently pretending history
 works. Recorded test-video history is **demo replay evidence**, not a
 real-time campus-usage study.
 
+## Calibrate parking-space geometry before evaluating car matching
+
+The included JSON files currently cover **seven** spaces in camera 1 and
+**four** in camera 2. Many other parked vehicles visible in the sample
+videos are intentionally **unassigned** until their stalls are configured.
+Do not interpret an unassigned detection as proof the car is outside the lot.
+
+Stop the running backend and, from the repository root, run the paused-frame
+manual calibration editor for one camera:
+
+```cmd
+.venv\Scripts\python.exe -m backend.calibrate_spaces --camera camera_1 --frame 0
+```
+
+The GUI lets an operator mark four corners of each physical stall, see
+stable existing IDs, and explicitly save a validated JSON configuration
+with a local backup. No automatic line inference or accuracy guarantee
+is implied. For instructions and the second camera see
+[parking-space calibration](docs/PARKING_SPACE_CALIBRATION.md).
+The original center-point vehicle association remains a known limitation
+pending separate validation of improved matching.
+
 ## Validation and team reproduction
 
 - [Workstation demonstration and evidence checklist](docs/WORKSTATION_DEMO.md)

@@ -62,6 +62,20 @@ class StatusPublisherTests(TestCase):
         self.assertNotIn("camera_1", self.latest)
 
 
+    def test_invalid_cv_result_is_rejected_in_demo_mode_too(self):
+        self.publish(None)
+        with self.assertRaises(ValueError):
+            self.publish(None, space_status=[{"id": 1, "open": "false"}])
+        self.assertNotIn("camera_1", self.latest)
+
+    def test_duplicate_space_id_is_rejected_before_demo_publication(self):
+        with self.assertRaises(ValueError):
+            self.publish(None, space_status=[
+                {"id": 1, "open": True}, {"id": 1, "open": False},
+            ])
+        self.assertEqual(self.latest, {})
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

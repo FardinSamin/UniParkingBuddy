@@ -66,6 +66,10 @@ threshold is asserted. These are **synthetic source → visible UI**
 measurements, distinct from the SRS-required real processed occupancy
 change → web display time, which still needs workstation observation.
 
+For AT-08, the [accessibility review worksheet](ACCESSIBILITY_REVIEW.md)
+tracks the automated keyboard/text cues and the outstanding human WCAG 2.2
+A/AA inspection. Partial automation is not formal accessibility conformance.
+
 ## Workstation acceptance test (manual and evidence-based)
 
 Use a fresh clone/checkout of `main` after the relevant PR has been

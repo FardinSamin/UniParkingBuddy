@@ -187,6 +187,22 @@ reduced camera 1's 51 raw candidate shapes to 7, and camera 2's 37 to
 Use `--ground-filter` only for research comparison with an independent
 output folder. See the updated Phase 2 experiment instructions.
 
+### Phase 4 — Compare joined parking-row markings (read-only)
+
+A separate experiment joins short, locally collinear painted-line
+observations, then compares candidate-stall geometry from **raw** versus
+**ground-supported** strokes. It deliberately does not add any unverified
+stall to the live system:
+
+```cmd
+.venv\Scripts\python.exe -m backend.row_continuity_experiment --video footage/stockvidsample2.mp4 --geometry evaluation_runs/geometry_camera1_ground/stall_candidates.json --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --output evaluation_runs/row_continuity_camera1
+```
+
+Check both `row_candidates_raw.png` and `row_candidates_ground.png`,
+as well as joined-stroke previews and the full `row_comparison.json`.
+See [line-continuity experiment and caveats](docs/EXPERIMENT_ROW_CONTINUITY.md).
+
+
 
 ### Phase 3 — Rank unverified stall hypotheses and filter likely car artifacts
 

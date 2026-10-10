@@ -35,6 +35,18 @@ class OccupancyUpdate(BaseModel):
     observed_at: AwareDatetime
     spaces: list[SpaceObservation] = Field(min_length=1)
 
+    @field_validator("observed_at", mode="before")
+    @classmethod
+    def parse_json_timestamp(cls, value):
+        # Parsed JSON carries ISO timestamps as strings. Normalize only
+        # ISO 8601, then keep AwareDatetime's strict timezone requirement.
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError as error:
+                raise ValueError("observed_at must be an ISO timestamp") from error
+        return value
+
     @field_validator("lot_id")
     @classmethod
     def nonblank_lot(cls, value):

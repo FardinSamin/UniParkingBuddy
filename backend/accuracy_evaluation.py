@@ -88,6 +88,7 @@ def prepare_evaluation(output_dir, requested=8, root=PROJECT_ROOT):
     manifest = {
         "version": 1,
         "inference_every_frames": INFERENCE_EVERY_FRAMES,
+        "model_sha256": file_sha256(root / "yolo26n.pt"),
         "cameras": {},
     }
     annotations = []
@@ -160,6 +161,8 @@ def _validated_manifest(folder, root):
         raise ValueError("Unsupported evaluation manifest")
     if manifest.get("inference_every_frames") != INFERENCE_EVERY_FRAMES:
         raise ValueError("The inference cadence differs from the saved evaluation")
+    if manifest.get("model_sha256") != file_sha256(root / "yolo26n.pt"):
+        raise ValueError("YOLO weights changed since the evaluation was prepared")
     cameras = manifest.get("cameras")
     if not isinstance(cameras, dict) or set(cameras) != set(CAMERA_VIDEOS):
         raise ValueError("Manifest camera list has changed")

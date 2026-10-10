@@ -79,12 +79,42 @@ print(repo.lot_summary("lot1"))
 print(repo.space_history("lot1", "1"))
 ```
 
-**Important:** This is a **database-foundation stage**, not a claim that
-the live CV-processing loop already writes to PostgreSQL. The existing
-Flask availability endpoint still uses in-memory processed results. Camera
-integration, historical trend API and frontend history/trend views are
-separate next stages. This avoids silently altering the live user experience
-before persistence behavior is verified in a real database.
+## Using PostgreSQL with the existing live backend
+
+After the database schema is applied, set `DATABASE_URL` in the shell running
+`python backend/main.py` (or `python -m backend.main`), then start the
+normal Flask/OpenCV backend. The backend automatically registers configured
+Lot 1/Lot 2 regions at startup and **writes each newly inferred per-space
+observation before publishing that result** to the live availability API.
+
+- Every valid inference produces a timestamped snapshot of configured
+  `AVAILABLE`/`OCCUPIED` states. Repeated display frames using cached YOLO
+  detections are **not** written again.
+- A failed database transaction invalidates that camera's live status until
+  a later valid inference commits. The API displays unavailable—not an
+  unpersisted open count or false FULL status.
+- If `DATABASE_URL` is **unset**, the original live, in-memory video demo
+  remains available, but a startup message explicitly says that occupancy
+  history **is not being persisted**.
+- If `DATABASE_URL` is set but its database is inaccessible or its schema
+  doesn't match the configured space identifiers, backend startup fails
+  rather than silently running without persistence.
+- The OpenCV `m` marking toggle is disabled **when database persistence is
+  enabled**. Live edits cannot be made transactionally across the JSON file
+  and PostgreSQL; edit/validate the JSON while offline, and use the explicit
+  registration/maintenance procedure before resuming. Marking works as
+  before in local in-memory demo mode.
+- Current live availability is still served from recent processed results
+  held in RAM; the database is now the source of timestamped history and
+  materialized latest-valid occupancy state. Historical read API/UI and
+  trend aggregation remain separate future work.
+
+**Recorded footage caveat:** The sample videos repeat during the demo.
+Observations written from these videos are valid *prototype inference events*,
+not independent measurements of real-time parking conditions on campus.
+Do not present demo-video aggregate patterns as evidence of actual campus
+busy times. Accurate real-world interpretations require suitable genuine
+timestamped footage/observations and controlled validation.
 
 The SDD Part 1 targets FastAPI, whereas the current repository uses Flask.
 This stage stays transport-neutral and does **not** silently substitute one

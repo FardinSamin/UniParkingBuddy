@@ -398,6 +398,88 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
                 json.dumps(report, indent=2) + "\\n", encoding="utf-8"
             )
 
+    def test_keyboard_primary_navigation_and_noncolor_status_cues(self):
+        """Cover primary keyboard route and visible text; not full WCAG audit."""
+        self.restore_live_status()
+        page = self.browser.new_page(viewport={"width": 1200, "height": 800})
+        self.addCleanup(page.close)
+        page.goto(self.base_url, wait_until="domcontentloaded")
+        cards = page.locator(".lot-card")
+        self.expect(cards).to_have_count(3)
+        self.expect(cards.nth(0)).to_contain_text("OPEN", timeout=15000)
+        self.expect(cards.nth(1)).to_contain_text("FULL")
+        self.expect(cards.nth(2)).to_contain_text("COMING SOON")
+        self.expect(cards.nth(2)).to_be_disabled()
+
+        # No pointer/mouse. Keyboard Tab reaches the monitored lot cards.
+        page.keyboard.press("Tab")
+        self.expect(cards.nth(0)).to_be_focused()
+        self.assertTrue(cards.nth(0).evaluate(
+            "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
+        ), "The primary keyboard target must show visible focus")
+        page.keyboard.press("Tab")
+        self.expect(cards.nth(1)).to_be_focused()
+        page.keyboard.press("Enter")
+        self.expect(page).to_have_url(re.compile(r"/parking-lot2$"))
+
+        statuses = page.locator(".dashboard-space-status")
+        expected_spaces = len(self.cameras["camera_2"]["config"]["spaces"])
+        self.expect(statuses).to_have_count(expected_spaces, timeout=12000)
+        self.assertEqual(statuses.all_text_contents(), ["Occupied"] * expected_spaces)
+        self.expect(page.get_by_text("Open now")).to_be_visible()
+        self.expect(page.get_by_text("Occupied", exact=True).first).to_be_visible()
+
+        # Test keyboard activation of the historical trends control.
+        history_button = page.get_by_role("button", name="Historical trends")
+        history_button.focus()
+        self.expect(history_button).to_be_focused()
+        page.keyboard.press("Enter")
+        self.expect(page).to_have_url(re.compile(r"/history/lot2$"))
+        self.expect(page.get_by_role(
+            "heading", name="Observed occupancy by hour (UTC)"
+        )).to_be_visible(timeout=12000)
+
+        self.expect(page.get_by_text(
+            "No data", exact=True
+        )).to_have_count(23)
+        self.expect(page.get_by_role(
+            "group", name="Recorded occupancy shares by UTC hour"
+        )).to_be_visible()
+        select = page.get_by_role("combobox", name="Parking space")
+        self.expect(select).to_be_visible()
+        self.expect(select.locator("option")).to_have_count(expected_spaces)
+        option_ids = select.locator("option").evaluate_all(
+            "(options) => options.map(el => el.value)"
+        )
+        self.assertGreaterEqual(len(option_ids), 2)
+
+        # Change a configured space using the keyboard-only select.
+        select.focus()
+        self.expect(select).to_be_focused()
+        self.assertTrue(select.evaluate(
+            "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
+        ))
+        page.keyboard.press("ArrowDown")
+        self.expect(select).to_have_value(option_ids[1], timeout=12000)
+        self.expect(page.locator(".history-record")).to_have_count(
+            1, timeout=12000
+        )
+        self.assertTrue(
+            any(
+                state in page.locator(".history-record").inner_text()
+                for state in ("Occupied", "Available")
+            ),
+            "History must convey the observed state as readable text",
+        )
+
+        # Return to the lot index via keyboard, without a pointer.
+        back_button = page.get_by_role("button", name=re.compile("All lots"))
+        back_button.focus()
+        self.expect(back_button).to_be_focused()
+        page.keyboard.press("Enter")
+        self.expect(page).to_have_url(re.compile(r"/$"))
+        self.expect(cards.nth(2)).to_be_disabled()
+
     def test_browser_does_not_invent_trends_during_storage_outage(self):
         # Test-only history provider raises like failed PostgreSQL; the
         # actual FastAPI error handler must return a sanitized HTTP 503.

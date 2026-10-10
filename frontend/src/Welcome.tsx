@@ -89,12 +89,16 @@ function Welcome(){
                     const counts = live[lot.id]
                     const open = counts ? counts.open : lot.openCount
                     const total = counts ? counts.total : lot.totalCount
-                    const status = getStatus(open, total)
+                    const disabled = !lot.camera
+                    const status = disabled
+                        ? { label: 'COMING SOON', bg: '#E9E6DF', color: '#5A5A56' }
+                        : getStatus(open, total)
                     return (
                         <button
                         key={lot.id}
                         className="lot-card"
                         style={{ background: lot.gradient }}
+                        disabled={disabled}
                         onClick={() => navigate(lot.path)}
 
                         >
@@ -107,7 +111,7 @@ function Welcome(){
                             <div className="lot-card-text">
                                 <p className="lot-card-name">{lot.name}</p>
                                 <p className="lot-card-count">
-                                    {open} of {total} open
+                                    {disabled ? 'Monitoring not available yet' : `${open} of ${total} open`}
                                 </p>
                             </div>
                         </button>

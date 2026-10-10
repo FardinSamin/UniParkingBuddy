@@ -3,3 +3,4 @@ numpy
 ultralytics
 flask
 flask-cors
+psycopg[binary]>=3.2,<4

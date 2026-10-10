@@ -83,9 +83,12 @@ npm run lint
 npm run build
 ```
 
-GitHub Actions runs these commands. Browser layout, keyboard accessibility,
-second-device availability and full camera/YOLO/PostgreSQL integration still
-need the controlled manual checks in `docs/VALIDATION.md`.
+GitHub Actions runs these commands and includes actual Chromium/Vite/FastAPI
+navigation, keyboard focus, mobile-width smoke checks and controlled
+synthetic update-timing observations. **Physical camera setup, second-device
+networking, full-system workstation acceptance, manually verified model
+accuracy and complete WCAG review still need human execution.** See
+`docs/VALIDATION.md` and `docs/WORKSTATION_DEMO.md`.
 
 There are no user-facing actions to edit configured spaces, submit occupancy
 updates, identify vehicles or people, or make parking reservations.

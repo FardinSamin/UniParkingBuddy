@@ -1,0 +1,173 @@
+# UniParkingBuddy
+
+**University of North Carolina at Pembroke · CSC 4900 · Fall 2026**
+
+UniParkingBuddy is a **prototype** campus-parking availability viewer.
+Authorized prerecorded test videos or a separately approved portable
+camera setup are processed with YOLO/OpenCV against **manually configured**
+parking-space polygons. FastAPI serves current availability to a
+read-only React + TypeScript interface. Optional PostgreSQL persistence
+records anonymous, timestamped `AVAILABLE`/`OCCUPIED` observations and
+descriptive history.
+
+The committed example setup uses **two monitored lots**:
+- Lot 1: `camera_1` → `footage/stockvidsample2.mp4`
+- Lot 2: `camera_2` → `footage/parkinglotfootage1_1.mp4`
+
+**Lot 3 is not monitored.** The existing placeholder card is intentionally
+disabled. The system does not automatically discover parking stalls,
+identify people/plates/specific vehicles, reserve spaces, take payments,
+enforce parking, or predict future occupancy. Replayed video observations
+must **not** be presented as current campus traffic.
+
+## Windows quick start — sample-video demo (no database required)
+
+Use a fresh clone of this repository, not an older downloaded ZIP.
+These commands are for **PowerShell** opened in the clone's root.
+
+**1. Install the prerequisites:** Git, Python **3.11** (the version used
+by CI), Node.js **22** and npm. A local graphical desktop is required
+for the OpenCV video windows. Node 22 and Python 3.11 are **tested CI
+versions**, not invented mandatory university specifications.
+
+```powershell
+git clone https://github.com/FardinSamin/UniParkingBuddy.git
+cd UniParkingBuddy
+py -3.11 -m venv .venv
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+cd frontend
+npm ci
+cd ..
+```
+
+If the `py -3.11` launcher is not installed, use the installed Python
+3.11 executable to create `.venv`. The direct `.venv\Scripts\python.exe`
+commands do **not** require changing PowerShell's script-execution policy.
+
+**2. Run the read-only readiness check** (from the repo root):
+
+```powershell
+& .\.venv\Scripts\python.exe -m backend.preflight --require-gui
+```
+
+Expected: `[PASS]` for required files, both decoded video frames,
+configured polygons and packages. A `[WARN]` about unset
+`DATABASE_URL` is expected when running **without** historical storage;
+it is not a false success for the historical trends page. A `[FAIL]`
+means fix that problem before attempting the demo. This check does not
+load YOLO weights, open application video windows, or write database rows.
+
+**3. Start the backend and video windows**, in PowerShell terminal 1
+from the repository root:
+
+```powershell
+& .\.venv\Scripts\python.exe -m backend.main
+```
+
+FastAPI listens on `http://127.0.0.1:5000`. If a video window has
+focus, press `q` to exit cleanly. In the database-free development
+mode, `m` toggles **manual** polygon marking; changes to the actual
+JSON region configs are persistent. Do not edit polygons during
+validation without recording the new configuration and corresponding
+test conditions. With PostgreSQL enabled, live marking is disabled.
+
+**4. Start React**, in a **separate** PowerShell terminal 2:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open `http://localhost:5173` (or the URL Vite prints). The browser
+requests `/api` through Vite's same-origin development proxy.
+The webpage should display two monitored cards and the disabled Lot 3
+placeholder. Open Lot 1/Lot 2, verify configured-space text states
+and counts. **Historical trends will be unavailable** with no database.
+
+To inspect FastAPI: `http://127.0.0.1:5000/docs`,
+`/api/lots`, `/api/status/camera_1`. Loading/unavailable is the
+correct state before a valid occupancy result or during a failure:
+it must not be rendered as FULL.
+
+## Optional PostgreSQL demo (history enabled)
+
+Create an **empty private database** in local PostgreSQL, configure
+`DATABASE_URL` in the backend terminal without committing the URL or
+password, then initialize the schema **once**:
+
+```powershell
+# Supply your private, valid PostgreSQL connection URI in this shell.
+# Do not paste real credentials into the shared repo, screenshots or chat.
+psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -f backend/schema.sql
+& .\.venv\Scripts\python.exe -m backend.seed_occupancy_database
+& .\.venv\Scripts\python.exe -m backend.preflight --check-db --require-gui
+& .\.venv\Scripts\python.exe -m backend.main
+```
+
+The schema and seed commands above require the environment variable to
+be set to your actual private PostgreSQL connection URI first. They
+should **not** be run repeatedly as a reset mechanism, and must **never**
+target a production or shared database accidentally. The schema/seed
+instructions and constraints are in
+[backend/DATABASE_SETUP.md](backend/DATABASE_SETUP.md).
+
+If `DATABASE_URL` is set but PostgreSQL is unavailable or the configured
+space IDs differ, startup fails rather than silently pretending history
+works. Recorded test-video history is **demo replay evidence**, not a
+real-time campus-usage study.
+
+## Validation and team reproduction
+
+- [Workstation demonstration and evidence checklist](docs/WORKSTATION_DEMO.md)
+- [Acceptance cases AT-01–AT-08](docs/ACCEPTANCE_TEST_RECORD.md)
+- [Controlled human-verified CV accuracy](docs/ACCURACY_EVALUATION.md)
+- [End-to-end validation plan](docs/VALIDATION.md)
+- [Accessibility and manual WCAG review](docs/ACCESSIBILITY_REVIEW.md)
+- [FastAPI and public API contracts](docs/FASTAPI_MIGRATION.md) /
+  [docs/API_CONTRACT.md](docs/API_CONTRACT.md)
+- [React/Vite networking and second-device instructions](frontend/README.md)
+
+The accuracy workflow requires independently labeled ground truth.
+The CI timing measurements use **synthetic** backend states, not
+physical-camera capture-to-browser times. Neither is an invented
+pass threshold.
+
+### Basic project checks
+
+From the root (with Python dependencies installed):
+
+```powershell
+& .\.venv\Scripts\python.exe -m unittest discover -s backend/tests -p "test_*.py" -v
+```
+
+Some PostgreSQL/real YOLO/Chromium tests intentionally **skip** without
+their dedicated CI test conditions. Do not treat these skips as passes.
+From `frontend`:
+
+```powershell
+npm test
+npm run lint
+npm run build
+```
+
+GitHub Actions covers backend tests, PostgreSQL integration, real YOLO
+inference on committed videos, Chromium UI navigation, and controlled
+synthetic frontend timings. It does **not** establish physical-camera
+performance, ground-truth accuracy or complete accessibility conformance.
+
+### Privacy and deployment notes
+
+No raw video is written to PostgreSQL by default. Conduct campus
+testing only with approved equipment/media and permissions. Never
+publish identifiable video frames, credentials or unreviewed
+accuracy/performance claims.
+
+The Vite proxy runs in development only. Static React production
+builds need an authorized web server to forward `/api/*` to FastAPI
+and serve client-side routes (see [frontend/README.md](frontend/README.md)).
+Do not expose the local development server, camera windows or PostgreSQL
+to the public internet.
+
+**Source of truth:** submitted SOW, WBS/Gantt, SRS and SDD documents
+remain the locked requirements/design baseline. This README describes
+the current implementation and does not revise those submissions.

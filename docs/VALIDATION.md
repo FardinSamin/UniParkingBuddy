@@ -70,6 +70,19 @@ For AT-08, the [accessibility review worksheet](ACCESSIBILITY_REVIEW.md)
 tracks the automated keyboard/text cues and the outstanding human WCAG 2.2
 A/AA inspection. Partial automation is not formal accessibility conformance.
 
+Before any workstation test, run the read-only preflight:
+
+```powershell
+& .\.venv\Scripts\python.exe -m backend.preflight --require-gui
+```
+
+On a PostgreSQL-enabled test workstation, use `--check-db` to
+check connectivity and required tables **without modifying data**.
+The [Windows demo procedure](WORKSTATION_DEMO.md) specifies exact
+startup commands, real input limitations, test/clock observations,
+safe shutdown and the SRS evidence fields. The [root README](../README.md)
+is the single entry point for new team clones.
+
 ## Workstation acceptance test (manual and evidence-based)
 
 Use a fresh clone/checkout of `main` after the relevant PR has been

@@ -47,6 +47,18 @@ class OccupancyContractTests(unittest.TestCase):
                     accept_occupancy_update(self.repo, {**self.valid, **extra})
                 self.repo.record_observations.assert_not_called()
 
+    def test_json_iso_timestamp_is_accepted_with_timezone(self):
+        payload = {**self.valid, "observed_at": "2026-10-10T12:00:00+00:00"}
+        result = accept_occupancy_update(self.repo, payload)
+        self.assertEqual(result.observed_at, self.at)
+        self.assertEqual(self.repo.record_observations.call_args.args[2], self.at)
+
+    def test_json_naive_iso_timestamp_is_rejected(self):
+        payload = {**self.valid, "observed_at": "2026-10-10T12:00:00"}
+        with self.assertRaises(ValidationError):
+            accept_occupancy_update(self.repo, payload)
+        self.repo.record_observations.assert_not_called()
+
     def test_naive_timestamp_is_rejected_without_touching_history(self):
         payload = {**self.valid, "observed_at": datetime(2026, 10, 10, 12)}
         with self.assertRaises(ValidationError):

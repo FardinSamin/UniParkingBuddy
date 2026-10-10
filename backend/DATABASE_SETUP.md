@@ -82,7 +82,7 @@ print(repo.space_history("lot1", "1"))
 ## Using PostgreSQL with the existing live backend
 
 After the database schema is applied, set `DATABASE_URL` in the shell running
-`python backend/main.py` (or `python -m backend.main`), then start the
+`python backend/main.py`, then start the
 normal Flask/OpenCV backend. The backend automatically registers configured
 Lot 1/Lot 2 regions at startup and **writes each newly inferred per-space
 observation before publishing that result** to the live availability API.

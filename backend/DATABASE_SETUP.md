@@ -106,8 +106,8 @@ observation before publishing that result** to the live availability API.
   before in local in-memory demo mode.
 - Current live availability is still served from recent processed results
   held in RAM; the database is now the source of timestamped history and
-  materialized latest-valid occupancy state. Historical read API/UI and
-  trend aggregation remain separate future work.
+  materialized latest-valid occupancy state. The read-only FastAPI history
+  and trend endpoints expose the persisted observations to React.
 
 **Recorded footage caveat:** The sample videos repeat during the demo.
 Observations written from these videos are valid *prototype inference events*,
@@ -116,10 +116,8 @@ Do not present demo-video aggregate patterns as evidence of actual campus
 busy times. Accurate real-world interpretations require suitable genuine
 timestamped footage/observations and controlled validation.
 
-The SDD Part 1 targets FastAPI, whereas the current repository uses Flask.
-This stage stays transport-neutral and does **not** silently substitute one
-for the other. A deliberate API-framework decision remains necessary before
-claiming full design alignment.
+The REST service now uses FastAPI and Uvicorn as required by the SOW/WBS/SRS.
+See `docs/FASTAPI_MIGRATION.md` for the unchanged HTTP contract and startup.
 
 ## Tests
 

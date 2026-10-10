@@ -27,7 +27,7 @@ class RealParkingMarkingSmoke(unittest.TestCase):
                 output = Path(folder) / "markings"
                 report = analyze_video_markings(
                     PROJECT_ROOT / "footage" / video,
-                    output, requested_frames=3,
+                    output, requested_frames=3, use_ground_filter=True,
                 )
                 self.assertTrue((output / "persistent_markings.png").is_file())
                 self.assertTrue((output / "geometry_preview.png").is_file())
@@ -46,6 +46,20 @@ class RealParkingMarkingSmoke(unittest.TestCase):
                     report["raw_geometry_candidate_count"]
                 )
                 self.assertTrue(report["ground_filter_enabled"])
+                ungated = analyze_video_markings(
+                    PROJECT_ROOT / "footage" / video,
+                    Path(folder) / "markings_ungated",
+                    requested_frames=3,
+                )
+                self.assertFalse(ungated["ground_filter_enabled"])
+                self.assertEqual(
+                    ungated["geometry_candidate_count"],
+                    ungated["raw_geometry_candidate_count"],
+                )
+                self.assertEqual(
+                    report["raw_geometry_candidate_count"],
+                    ungated["geometry_candidate_count"],
+                )
                 print(
                     f"{video}: raw_lines={report['detected_paint_like_line_count']} "
                     f"ground_supported_lines={report['ground_supported_line_count']} "

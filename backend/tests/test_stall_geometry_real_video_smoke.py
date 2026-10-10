@@ -27,15 +27,46 @@ class RealParkingMarkingSmoke(unittest.TestCase):
                 output = Path(folder) / "markings"
                 report = analyze_video_markings(
                     PROJECT_ROOT / "footage" / video,
-                    output, requested_frames=3,
+                    output, requested_frames=3, use_ground_filter=True,
                 )
                 self.assertTrue((output / "persistent_markings.png").is_file())
                 self.assertTrue((output / "geometry_preview.png").is_file())
+                self.assertTrue((output / "ground_line_evidence.png").is_file())
                 self.assertEqual(json.loads(
                     (output / "stall_candidates.json").read_text(encoding="utf-8")
                 ), report)
                 self.assertEqual(report["review_state"], "unverified_proposals_only")
                 self.assertEqual(report["geometry_candidate_count"], len(report["candidates"]))
+                self.assertLessEqual(
+                    report["ground_supported_line_count"],
+                    report["detected_paint_like_line_count"]
+                )
+                self.assertLessEqual(
+                    report["geometry_candidate_count"],
+                    report["raw_geometry_candidate_count"]
+                )
+                self.assertTrue(report["ground_filter_enabled"])
+                ungated = analyze_video_markings(
+                    PROJECT_ROOT / "footage" / video,
+                    Path(folder) / "markings_ungated",
+                    requested_frames=3,
+                )
+                self.assertFalse(ungated["ground_filter_enabled"])
+                self.assertEqual(
+                    ungated["geometry_candidate_count"],
+                    ungated["raw_geometry_candidate_count"],
+                )
+                self.assertEqual(
+                    report["raw_geometry_candidate_count"],
+                    ungated["geometry_candidate_count"],
+                )
+                print(
+                    f"{video}: raw_lines={report['detected_paint_like_line_count']} "
+                    f"ground_supported_lines={report['ground_supported_line_count']} "
+                    f"raw_quads={report['raw_geometry_candidate_count']} "
+                    f"filtered_quads={report['geometry_candidate_count']}",
+                    flush=True,
+                )
                 self.assertEqual(len(report["sampled_frame_indices"]), 3)
                 self.assertTrue(all(
                     candidate["review_state"] == "unverified" for candidate

@@ -76,6 +76,64 @@ fails rather than fusing incompatible geometry. The number of candidates
 can be zero, and many can be false/duplicated. Neither zero nor many
 candidates proves anything about real parking availability.
 
+## Improvement after the Phase 3 zero-shortlist result
+
+In the October 10 demonstration, Phase 2 produced 39 shapes and the
+Phase 3 reviewer shortlisted **zero**, flagging 31 shapes as possible
+car-surface artifacts. That is **not** a successful stall layout.
+The problem begins upstream: persistent bright paint-like pixels include
+stationary car roofs, windows, curbs and background objects.
+
+This version adds a **dark-ground contrast evidence gate** before Phase 2
+pairs the lines into quadrilaterals. It checks whether a candidate stroke
+has a visibly brighter center than the regions on **both sides** over the
+sampled video frames. A parking stripe on dark asphalt often has this
+property; a car roof/window edge usually does not.
+
+This is **not a road segmentation network** and it can miss legitimate
+markings on bright concrete or heavily obscured lanes. If the count is
+zero, treat it as *no evidence found*, not an empty lot. Never relax the
+gate merely to produce more polygons without checking source frames.
+
+To compare against the earlier run on your Windows PC, generate a **new**
+Phase 2 experiment directory:
+
+```cmd
+cd /d C:\Users\Fardin\UniParkingBuddy
+git pull --ff-only
+.venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1_ground --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --ground-filter
+start "" "evaluation_runs\geometry_camera1_ground\ground_line_evidence.png"
+start "" "evaluation_runs\geometry_camera1_ground\geometry_preview.png"
+```
+
+**Review both images.** In `ground_line_evidence.png`, green strokes
+have supporting paint-on-ground contrast; red strokes were rejected.
+The new `stall_candidates.json` records *raw line count*, *ground-supported
+line count*, *raw ungated geometry count* and *gated geometry count*.
+These counts are evidence about the algorithm only, not how many stalls
+actually exist. The data still contain **unverified** proposals.
+
+The original ungated behavior remains the **default**, so a normal
+Phase 2 run without `--ground-filter` preserves earlier candidate coverage.
+Use **different output directories** for a controlled comparison; do not
+overwrite prior evidence. The optional `--ground-filter` and trial
+`--ground-min-fraction` controls are research settings, not course-level
+performance requirements.
+
+For the existing Phase 3 reviewer, use the newly generated geometry file
+and another new output folder:
+
+```cmd
+.venv\Scripts\python.exe -m backend.review_stall_candidates --video footage/stockvidsample2.mp4 --geometry evaluation_runs/geometry_camera1_ground/stall_candidates.json --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --output evaluation_runs/review_camera1_ground
+start "" "evaluation_runs\review_camera1_ground\review_preview.png"
+```
+
+If very few true stalls survive, capture the **missed marked separators**
+as false negatives and improve scene-ground estimation/parking-row
+geometry before adding further heuristics. We have **no independent
+measured precision/recall** yet; even a visually cleaner overlay does not
+prove generalization to unseen lots.
+
 ## Human review protocol
 
 For each candidate L001 etc., examine the **original video frames**, not

@@ -175,6 +175,19 @@ approved space regions or valid evidence of occupancy. Bright lane edges,
 vehicle contours and camera perspective can generate false candidates.
 See [Phase 2 instructions and limitations](docs/EXPERIMENT_STALL_GEOMETRY.md).
 
+**New pavement-contrast gate:** Following the first Windows review in which
+Phase 3 shortlisted zero shapes out of 39, Phase 2 can test for bright
+strokes against darker surroundings on **both sides**, before creating
+review-only polygons, when explicitly run with `--ground-filter`. It also saves `ground_line_evidence.png` (green
+ground-like, red rejected) and raw-versus-gated counts. Use a *new output*
+folder when rerunning; this does **not** guarantee correct stall discovery,
+especially on bright pavement and occluded/moving viewpoints. The default remains **ungated** because the three-frame smoke check
+reduced camera 1's 51 raw candidate shapes to 7, and camera 2's 37 to
+1; that is not verified accuracy, and may reject real stalls.
+Use `--ground-filter` only for research comparison with an independent
+output folder. See the updated Phase 2 experiment instructions.
+
+
 ### Phase 3 — Rank unverified stall hypotheses and filter likely car artifacts
 
 Once Phase 1 and Phase 2 have generated their **local** reports, use the

@@ -97,6 +97,9 @@ so retain the JSON along with the Actions run URL and environment data.
 Record reviewer, date, browser/OS, test method, relevant WCAG 2.2
 A/AA criterion where applicable, observed result, and any issue ID.
 
+See [ACCESSIBILITY_REVIEW.md](ACCESSIBILITY_REVIEW.md) for the
+WCAG-informed keyboard, contrast, reflow and assistive technology checklist.
+
 - [ ] Keyboard-only access to all primary navigation (lots, lot
       details, historical trends, space selection, back navigation)
 - [ ] Visible keyboard focus and readable labels

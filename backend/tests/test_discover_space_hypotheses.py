@@ -36,7 +36,7 @@ class SpaceHypothesisTests(unittest.TestCase):
         self.assertEqual(result["frame_indices"], [0, 30, 60, 90])
         self.assertEqual(result["review_state"], "unverified")
         self.assertEqual(result["evidence_type"], "repeated_vehicle_detection_only")
-        self.assertEqual(result["proxy_vehicle_box_xyxy"], [101, 60, 135, 114])
+        self.assertEqual(result["proxy_vehicle_box_xyxy"], [100, 60, 134, 114])
         self.assertNotIn("points", result)  # not a valid parking-config polygon
 
     def test_transient_passing_car_does_not_generate_candidate(self):

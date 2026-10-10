@@ -11,3 +11,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Generated local/CI validation evidence
+/.ci-evidence/

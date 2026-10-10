@@ -5,7 +5,7 @@ import numpy as np
 import threading
 from flask import Flask, jsonify
 from flask_cors import CORS
-from space_matching import assign_detections_to_spaces
+from space_matching import assign_detections_to_spaces, build_space_statuses
 from parking_config import (
     ParkingConfigError, add_space, load_config, remove_space, save_config,
 )
@@ -187,11 +187,12 @@ while True:
             (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
         )
 
-        space_status = []
+        space_status = build_space_statuses(
+            cap["config"]["spaces"], occupied_spaces
+        )
         for i, contour in enumerate(contours):
             occupied = occupied_spaces[i]
             space_id = cap["config"]["spaces"][i]["id"]
-            space_status.append({"id": space_id, "open": not occupied})
 
             if mode == "mark":
                 color = (255, 0, 0)  # blue while marking (BGR)

@@ -116,7 +116,7 @@ test('invalid day windows are rejected before fetching', async () => {
 test('space history preserves two domain states and timestamp values', async () => {
   await withFetch(
     async (url) => {
-      assert.equal(url, 'http://localhost:5000/api/history/lot1/7')
+      assert.equal(url, '/api/history/lot1/7')
       return reply({
         lot_id: 'lot1',
         space_id: '7',

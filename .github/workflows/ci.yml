@@ -47,7 +47,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements.txt
       - name: Install isolated unit-test dependencies
-        run: python -m pip install numpy opencv-python-headless flask flask-cors 'psycopg[binary]>=3.2,<4'
+        run: python -m pip install numpy opencv-python-headless fastapi uvicorn httpx 'psycopg[binary]>=3.2,<4'
       - name: Run backend unit tests
         run: python -m unittest discover -s backend/tests -p 'test_*.py' -v
 
@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install database and headless CV test dependencies
-        run: python -m pip install 'psycopg[binary]>=3.2,<4' numpy opencv-python-headless flask flask-cors
+        run: python -m pip install 'psycopg[binary]>=3.2,<4' numpy opencv-python-headless fastapi uvicorn httpx
       - name: Test PostgreSQL schema and repository transactions
         run: python -m unittest discover -s backend/tests -p 'test_occupancy_repository.py' -v
       - name: Test CV through PostgreSQL and HTTP API

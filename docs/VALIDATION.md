@@ -11,7 +11,7 @@ The normal pull-request checks cover:
   and confirmation that all configured polygon corners fit their source
   frame dimensions.
 - Headless synthetic detection boxes -> OpenCV polygon association ->
-  stable IDs -> transactional PostgreSQL write -> Flask current, history
+  stable IDs -> transactional PostgreSQL write -> FastAPI current, history
   and trend endpoints. It checks that a vehicle **outside** configured
   regions does not raise occupied-space counts.
 - A forced failed write or stopped video makes live status unavailable,

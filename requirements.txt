@@ -1,6 +1,6 @@
 opencv-python
 numpy
 ultralytics
-flask
-flask-cors
+fastapi
+uvicorn
 psycopg[binary]>=3.2,<4

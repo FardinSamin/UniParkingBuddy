@@ -69,7 +69,7 @@ representative collection, and controlled validation are needed for that.
 GitHub Actions runs:
 - PostgreSQL integration tests for hourly group counts, time-window filtering,
   recent space history and no-data behavior.
-- Flask API unit tests for safe response/error handling.
+- FastAPI TestClient unit tests for safe response/error handling.
 - Node frontend API-response validation tests and the production frontend
   build/lint.
 

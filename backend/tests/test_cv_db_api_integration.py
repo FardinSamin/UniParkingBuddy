@@ -1,4 +1,4 @@
-"""Smoke test the CV geometry -> persistence gate -> Flask API chain.
+"""Smoke test the CV geometry -> persistence gate -> FastAPI chain.
 
 Uses a synthetic fixed-view scene and real disposable PostgreSQL server.
 No GUI or YOLO model is launched; this cannot measure inference accuracy.
@@ -16,6 +16,8 @@ import psycopg
 
 from backend.occupancy_repository import OccupancyRepository, SCHEMA_PATH
 from backend.space_matching import assign_detections_to_spaces, build_space_statuses
+from fastapi.testclient import TestClient
+
 from backend.status_api import create_status_app, invalidate_camera_status
 from backend.status_publisher import publish_space_result
 
@@ -56,8 +58,7 @@ class CVToPostgreSQLToAPITests(unittest.TestCase):
         self.live = {}
         self.lock = Lock()
         self.app = create_status_app({"camera_1": object()}, self.live, self.lock, self.repo)
-        self.app.testing = True
-        self.client = self.app.test_client()
+        self.client = TestClient(self.app)
         self.when = datetime.now(timezone.utc)
 
     def detect_and_publish(self, boxes):
@@ -88,7 +89,7 @@ class CVToPostgreSQLToAPITests(unittest.TestCase):
 
         current = self.client.get("/api/status/camera_1")
         self.assertEqual(current.status_code, 200)
-        self.assertEqual(current.get_json(), {
+        self.assertEqual(current.json(), {
             "cars_detected": 2,
             "vehicles_in_spaces": 1,
             "vehicles_outside_spaces": 1,
@@ -109,12 +110,12 @@ class CVToPostgreSQLToAPITests(unittest.TestCase):
 
         history = self.client.get("/api/history/lot1/2")
         self.assertEqual(history.status_code, 200)
-        self.assertEqual(history.get_json()["records"][0]["status"], "OCCUPIED")
+        self.assertEqual(history.json()["records"][0]["status"], "OCCUPIED")
 
         trend = self.client.get("/api/trends/lot1?days=7")
         self.assertEqual(trend.status_code, 200)
         hour = next(
-            item for item in trend.get_json()["hourly"]
+            item for item in trend.json()["hourly"]
             if item["hour_utc"] == self.when.hour
         )
         self.assertEqual(hour["observations"], 2)
@@ -125,8 +126,8 @@ class CVToPostgreSQLToAPITests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/status/camera_1").status_code, 503)
         self.assertEqual(self.repo.lot_summary("lot1")["spaces_with_current_state"], 0)
         trends = self.client.get("/api/trends/lot1")
-        self.assertFalse(trends.get_json()["has_history"])
-        self.assertEqual(trends.get_json()["hourly"], [])
+        self.assertFalse(trends.json()["has_history"])
+        self.assertEqual(trends.json()["hourly"], [])
 
     def test_camera_read_failure_invalidates_live_but_keeps_history(self):
         self.detect_and_publish([(5, 5, 15, 15, 0.9)])

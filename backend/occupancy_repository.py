@@ -11,7 +11,11 @@ from pathlib import Path
 import psycopg
 from psycopg.types.json import Jsonb
 
-from .parking_config import validate_config
+# Support both "python -m backend.main" and existing "python backend/main.py".
+if __package__:
+    from .parking_config import validate_config
+else:
+    from parking_config import validate_config
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 

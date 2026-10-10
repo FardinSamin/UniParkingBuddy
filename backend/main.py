@@ -183,8 +183,8 @@ def main():
                 cap["last_boxes"], contours
             )
 
-            # Detected vehicles outside the marked spaces remain visible,
-            # but do not change occupied-space counts.
+            # Unassigned detections may still be parked in unconfigured stalls;
+            # they never change the occupancy of configured spaces.
             in_spaces = sum(index is not None for index in matched_spaces)
             outside_spaces = len(matched_spaces) - in_spaces
 
@@ -193,7 +193,7 @@ def main():
             ):
                 if space_index is None:
                     color = (0, 255, 255)  # yellow: outside marked spaces (BGR)
-                    label = f"OUTSIDE SPACE {conf:.2f}"
+                    label = f"UNASSIGNED {conf:.2f}"
                 else:
                     color = (0, 0, 255)  # red: matched to a space (BGR)
                     label = f"SPACE {cap['config']['spaces'][space_index]['id']} {conf:.2f}"
@@ -211,7 +211,7 @@ def main():
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
             )
             cv2.putText(
-                display, f"In spaces: {in_spaces} | Outside spaces: {outside_spaces}",
+                display, f"Matched: {in_spaces} | Unassigned: {outside_spaces}",
                 (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
             )
 

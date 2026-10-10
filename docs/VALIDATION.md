@@ -23,9 +23,22 @@ checks COCO vehicle class mapping, bounding box validity, and consistency of
 resulting configured-space IDs/states. This is a **model/pipeline smoke test**,
 not independent manual verification of parking accuracy.
 
-Automated tests still do **not** check OpenCV window interaction, verify
-frontend layout in a browser, or establish camera availability,
-ground-truth classification accuracy or response-time guarantees.
+A **second real-model CI stage now connects the full headless backend
+pipeline**, from actual committed video frames through YOLO and configured
+polygons to transactional PostgreSQL writes and FastAPI response contracts.
+It checks both cameras at frames 0 and 30, read-only current lot/space
+summaries, per-space history, descriptive hourly totals, persistence rollback,
+cached-frame non-writes and live status recovery after invalidation.
+
+The tests assert **consistency of data across components**, not agreement
+with an independently verified real-world parked/available state. These
+stored results are observations of replayed *demo footage*, not measured
+campus traffic conditions.
+
+Automated tests still do **not** exercise the OpenCV display windows,
+a full React page in a browser, a physical/live camera, representative
+ground-truth accuracy or measured end-user update timing. Those remain
+distinct workstation and controlled-acceptance tasks below.
 
 ## Workstation acceptance test (manual and evidence-based)
 

@@ -3,8 +3,7 @@ from ultralytics import YOLO
 from pathlib import Path
 import numpy as np
 import threading
-from flask import Flask, jsonify
-from flask_cors import CORS
+from status_api import create_status_app
 from space_matching import assign_detections_to_spaces, build_space_statuses
 from parking_config import (
     ParkingConfigError, add_space, load_config, remove_space, save_config,
@@ -92,32 +91,9 @@ for name in camera_captures:
     cv2.setMouseCallback(name, mouseClick, name)
 
 
-app = Flask(__name__)
-CORS(app)
-
-latest_status = {} 
+latest_status = {}
 status_lock = threading.Lock()
-
-@app.route('/api/status/<camera>')
-def get_status(camera):
-    if camera not in camera_captures:
-        return jsonify({"error": "Camera is not configured or active"}), 404
-
-    with status_lock:
-        c = latest_status.get(camera)
-    if c is None:
-        return jsonify({"error": "Parking status is not ready"}), 503
-    if not c["spaces"]:
-        return jsonify({"error": "No configured parking spaces available"}), 503
-
-    return jsonify({
-        "cars_detected": c["cars"],
-        "vehicles_in_spaces": c["in_space_vehicles"],
-        "vehicles_outside_spaces": c["outside_space_vehicles"],
-        "parking_spaces": [
-            {"id": s["id"], "occupied": not s["open"]} for s in c["spaces"]
-        ],
-    })
+app = create_status_app(camera_captures, latest_status, status_lock)
 
 def run_api():
     app.run(port=5000, debug=False, use_reloader=False)
@@ -130,6 +106,12 @@ while True:
 
         success, frame = cap["source"].read()
         if not success:
+            # A failed/ended video read is not a new, valid occupancy result.
+            # Remove the last state immediately so clients see UNAVAILABLE
+            # rather than stale open/occupied counts.
+            with status_lock:
+                latest_status.pop(name, None)
+            cap["last_boxes"].clear()
             cap["source"].set(cv2.CAP_PROP_POS_FRAMES, 0)
             cap["frame_idx"] = 0
             continue

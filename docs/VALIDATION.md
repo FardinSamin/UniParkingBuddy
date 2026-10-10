@@ -17,9 +17,15 @@ The normal pull-request checks cover:
 - A forced failed write or stopped video makes live status unavailable,
   while already committed history remains retrievable.
 
-These tests do **not** run YOLO inference against real vehicles, check
-OpenCV window interaction, verify frontend layout in a browser, or prove
-camera availability, classification accuracy or response-time guarantees.
+A separate dedicated CI job now **loads the committed YOLO weights and runs
+actual CPU inference** on frames 0 and 30 of both configured test videos. It
+checks COCO vehicle class mapping, bounding box validity, and consistency of
+resulting configured-space IDs/states. This is a **model/pipeline smoke test**,
+not independent manual verification of parking accuracy.
+
+Automated tests still do **not** check OpenCV window interaction, verify
+frontend layout in a browser, or establish camera availability,
+ground-truth classification accuracy or response-time guarantees.
 
 ## Workstation acceptance test (manual and evidence-based)
 

@@ -23,7 +23,13 @@ class RowContinuityTests(unittest.TestCase):
             [180, 40, 180, 94], [180, 97, 180, 174],
         ]
         before = propose_stall_geometry(lines, (240, 280, 3))
-        self.assertEqual(len(before), 0)
+        # Separate short fragments can produce misleading *partial* bays.
+        self.assertTrue(before)
+        self.assertTrue(all(
+            max(point[1] for point in proposal["suggested_quadrilateral_xy"])
+            - min(point[1] for point in proposal["suggested_quadrilateral_xy"]) < 100
+            for proposal in before
+        ))
         joined = join_collinear_fragments(lines)
         self.assertEqual(len(joined), 3)
         self.assertTrue(all(entry["observed_fragment_count"] == 2 for entry in joined))

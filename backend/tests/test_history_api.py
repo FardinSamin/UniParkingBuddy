@@ -5,6 +5,8 @@ from threading import Lock
 from unittest import TestCase
 from unittest.mock import Mock
 
+from fastapi.testclient import TestClient
+
 from backend.status_api import create_status_app
 
 
@@ -21,13 +23,12 @@ class HistoryApiTests(TestCase):
              "observed_at": datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)}
         ]
         app = create_status_app({"camera_1": object()}, {}, Lock(), self.repository)
-        app.testing = True
-        self.client = app.test_client()
+        self.client = TestClient(app)
 
     def test_trend_has_sample_counts_and_utc_label_not_prediction(self):
         response = self.client.get("/api/trends/lot1")
         self.assertEqual(response.status_code, 200)
-        body = response.get_json()
+        body = response.json()
         self.assertEqual(body["days"], 7)
         self.assertEqual(body["timezone"], "UTC")
         self.assertEqual(body["space_ids"], ["1", "7"])
@@ -63,8 +64,8 @@ class HistoryApiTests(TestCase):
         self.repository.hourly_occupancy_trends.return_value = []
         response = self.client.get("/api/trends/lot1")
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.get_json()["has_history"])
-        self.assertEqual(response.get_json()["hourly"], [])
+        self.assertFalse(response.json()["has_history"])
+        self.assertEqual(response.json()["hourly"], [])
 
     def test_space_history_is_bounded_and_has_iso_timestamps(self):
         response = self.client.get("/api/history/lot1/7")
@@ -72,7 +73,7 @@ class HistoryApiTests(TestCase):
         self.repository.space_history.assert_called_once_with(
             "lot1", "7", limit=100
         )
-        body = response.get_json()
+        body = response.json()
         self.assertTrue(body["has_history"])
         self.assertEqual(body["records"][0]["status"], "OCCUPIED")
         self.assertEqual(body["records"][0]["observed_at"], "2026-10-10T13:00:00+00:00")
@@ -85,17 +86,16 @@ class HistoryApiTests(TestCase):
         self.repository.space_history.return_value = []
         response = self.client.get("/api/history/lot1/1")
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.get_json()["has_history"])
+        self.assertFalse(response.json()["has_history"])
 
     def test_database_errors_are_safe_and_return_unavailable(self):
         self.repository.hourly_occupancy_trends.side_effect = RuntimeError("password=secret")
         response = self.client.get("/api/trends/lot1")
         self.assertEqual(response.status_code, 503)
-        self.assertNotIn("secret", response.get_data(as_text=True))
+        self.assertNotIn("secret", response.text)
 
     def test_database_not_configured_is_unavailable_not_empty(self):
         app = create_status_app({}, {}, Lock(), persistence=None)
-        app.testing = True
-        client = app.test_client()
+        client = TestClient(app)
         self.assertEqual(client.get("/api/trends/lot1").status_code, 503)
         self.assertEqual(client.get("/api/history/lot1/1").status_code, 503)

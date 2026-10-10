@@ -359,3 +359,154 @@ body {
   cursor: not-allowed;
   opacity: 0.65;
 }
+
+
+/* Read-only historical observations. No bars or counts imply predictions. */
+.history-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.history-body {
+  max-width: 1100px;
+  padding: 32px;
+}
+
+.history-explanation {
+  line-height: 1.6;
+  color: #4F4C43;
+  max-width: 850px;
+  margin: 0 0 26px;
+}
+
+.history-section {
+  background: #FFF;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.history-section h2 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+
+.history-muted {
+  color: #5A5A56;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.history-chart-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.history-chart {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(37px, 1fr));
+  gap: 4px;
+  min-width: 900px;
+}
+
+.history-hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.history-column {
+  height: 155px;
+  width: 26px;
+  background: #F5F1E8;
+  border: 1px solid #E2DACB;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.history-bar {
+  width: 100%;
+  background: #A37F21;
+  border-radius: 4px 4px 0 0;
+}
+
+.history-no-sample {
+  color: #7C7870;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.history-hour-label {
+  font-weight: 700;
+}
+
+.history-percent-label, .history-count-label {
+  color: #5A5A56;
+}
+
+.history-select-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.history-select {
+  padding: 9px 12px;
+  border-radius: 7px;
+  border: 1px solid #B5B0A7;
+  background: #FFF;
+  font: inherit;
+  margin-bottom: 20px;
+}
+
+.history-record-list {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.history-record {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 2px;
+  border-bottom: 1px solid #E4E1DA;
+  font-size: 14px;
+}
+
+.history-record strong {
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .dashboard-header-top {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .history-body {
+    padding: 16px;
+  }
+
+  .history-section {
+    padding: 16px;
+  }
+
+  .history-record {
+    flex-wrap: wrap;
+  }
+}

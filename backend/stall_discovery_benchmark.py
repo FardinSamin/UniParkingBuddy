@@ -143,6 +143,7 @@ class BlindLayoutAnnotation:
             raise ValueError("Finish or undo unfinished corners before saving")
         report = {
             "format": "uniparkingbuddy-stall-layout-truth-v1",
+            "source_video": str(self.video),
             "source_video_sha256": file_sha256(self.video),
             "frame_index": self.frame_index,
             "frame_size": [self.width, self.height],

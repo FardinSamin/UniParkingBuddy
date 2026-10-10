@@ -35,10 +35,20 @@ with an independently verified real-world parked/available state. These
 stored results are observations of replayed *demo footage*, not measured
 campus traffic conditions.
 
-Automated tests still do **not** exercise the OpenCV display windows,
-a full React page in a browser, a physical/live camera, representative
-ground-truth accuracy or measured end-user update timing. Those remain
-distinct workstation and controlled-acceptance tasks below.
+A separate **Chromium browser** job exercises the actual built React
+components through a running Vite development server that forwards
+same-origin `/api` requests to a real Uvicorn/FastAPI app. It checks the
+monitored-lot cards (genuinely FULL vs unavailable), disabled unsupported
+Lot 3, logo asset, current-space labels, history charts/records, API outage,
+recovery, and a narrow mobile-sized viewport. The browser fixture contains
+**explicitly synthetic current and historical states**, rather than
+claiming to have captured real-world observations.
+
+Automated tests still do **not** exercise the OpenCV display windows, the
+actual campus/portable camera, visual ground-truth CV correctness or
+measured end-user latency. The real-video/backend CI job and browser CI
+job test complementary boundaries; they are **not** a single combined
+real-YOLO-through-Chromium run. Workstation acceptance remains required.
 
 ## Workstation acceptance test (manual and evidence-based)
 

@@ -22,7 +22,7 @@ async function withMockFetch(mock, run) {
 test('valid current occupancy is returned, including a genuinely full lot', async () => {
   await withMockFetch(
     async (url) => {
-      assert.equal(url, 'http://localhost:5000/api/status/camera_1')
+      assert.equal(url, '/api/status/camera_1')
       return reply({ cars_detected: 2, parking_spaces: [
         { id: 1, occupied: true },
         { id: 2, occupied: true },

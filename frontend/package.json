@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test tests/parkingStatus.test.mjs tests/historyApi.test.mjs"
+    "test": "node --experimental-strip-types --test tests/parkingStatus.test.mjs tests/historyApi.test.mjs tests/monitoredLots.test.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

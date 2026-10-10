@@ -1,3 +1,5 @@
+import { getApiJson } from './apiClient.ts'
+
 // Read-only historical observations. API JSON is untrusted until validated.
 export interface HourlySample {
   hour_utc: number
@@ -35,9 +37,7 @@ function nonnegativeInteger(n: unknown): n is number {
 }
 
 async function getJSON(path: string): Promise<unknown> {
-  const response = await fetch(`http://localhost:5000${path}`)
-  if (!response.ok) throw new Error('Historical information is unavailable')
-  return response.json() as Promise<unknown>
+  return getApiJson(path)
 }
 
 export async function fetchTrends(lot: string, days = 7): Promise<TrendsData> {

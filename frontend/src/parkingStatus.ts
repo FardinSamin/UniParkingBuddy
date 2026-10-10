@@ -1,3 +1,5 @@
+import { getApiJson } from './apiClient.ts'
+
 // Shared validation for parking occupancy data from the backend.
 export interface ParkingSpaceStatus {
   id: number
@@ -73,11 +75,5 @@ function parseParkingStatus(value: unknown): ParkingStatusResponse {
 }
 
 export async function fetchParkingStatus(camera: string): Promise<ParkingStatusResponse> {
-  const response = await fetch(`http://localhost:5000/api/status/${camera}`)
-
-  if (!response.ok) {
-    throw new Error('Parking status request failed')
-  }
-
-  return parseParkingStatus(await response.json())
+  return parseParkingStatus(await getApiJson(`/api/status/${encodeURIComponent(camera)}`))
 }

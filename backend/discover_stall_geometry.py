@@ -320,7 +320,7 @@ def render_geometry_preview(frame, lines, proposals):
 
 def analyze_video_markings(video_path, output_dir, requested_frames=12,
                            support_fraction=0.5, hypotheses_path=None,
-                           use_ground_filter=True, ground_min_fraction=0.33):
+                           use_ground_filter=False, ground_min_fraction=0.33):
     """Generate read-only local marking and geometry evidence for a video."""
     video_path = Path(video_path).resolve()
     output_dir = Path(output_dir)
@@ -422,8 +422,8 @@ def main(argv=None):
         help="Experimental bright-paint/dark-flank support fraction in sampled frames"
     )
     parser.add_argument(
-        "--no-ground-filter", action="store_true",
-        help="Diagnostic: reproduce prior bright-line candidates without the ground gate"
+        "--ground-filter", action="store_true",
+        help="Opt-in experimental gate; compare with default ungated candidates"
     )
     parser.add_argument("--hypotheses", type=Path,
                         help="Optional Phase-1 hypotheses.json for matching evidence")
@@ -432,7 +432,7 @@ def main(argv=None):
         report = analyze_video_markings(
             args.video, args.output, args.frames,
             support_fraction=args.paint_support, hypotheses_path=args.hypotheses,
-            use_ground_filter=not args.no_ground_filter,
+            use_ground_filter=args.ground_filter,
             ground_min_fraction=args.ground_min_fraction
         )
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:

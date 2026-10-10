@@ -175,6 +175,21 @@ approved space regions or valid evidence of occupancy. Bright lane edges,
 vehicle contours and camera perspective can generate false candidates.
 See [Phase 2 instructions and limitations](docs/EXPERIMENT_STALL_GEOMETRY.md).
 
+### Phase 3 — Rank unverified stall hypotheses and filter likely car artifacts
+
+Once Phase 1 and Phase 2 have generated their **local** reports, use the
+read-only quality-review command:
+
+```cmd
+.venv\Scripts\python.exe -m backend.review_stall_candidates --video footage/stockvidsample2.mp4 --geometry evaluation_runs/geometry_camera1/stall_candidates.json --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --output evaluation_runs/review_camera1
+```
+
+This compares shared parking-row separators, recurring vehicle evidence,
+and obviously too-small roof/window-like candidates. It produces a **review
+shortlist**, not approved parking polygons. See the
+[Phase 3 review procedure](docs/EXPERIMENT_STALL_QUALITY_REVIEW.md).
+
+
 and [research architecture](docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md).
 
 ## Validation and team reproduction

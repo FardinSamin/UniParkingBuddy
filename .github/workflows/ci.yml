@@ -133,6 +133,8 @@ jobs:
         run: python -m unittest discover -s backend/tests -p 'test_review_stalls_real_video_smoke.py' -v
       - name: Test read-only painted-row line joining on real videos
         run: python -m unittest discover -s backend/tests -p 'test_row_continuity_real_video_smoke.py' -v
+      - name: Verify blind discovery benchmark preview on real videos
+        run: python -m unittest discover -s backend/tests -p 'test_stall_discovery_benchmark_real_video_smoke.py' -v
 
   browser-fastapi-react:
     name: Real Chromium + Vite + FastAPI UI integration

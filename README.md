@@ -202,6 +202,30 @@ Check both `row_candidates_raw.png` and `row_candidates_ground.png`,
 as well as joined-stroke previews and the full `row_comparison.json`.
 See [line-continuity experiment and caveats](docs/EXPERIMENT_ROW_CONTINUITY.md).
 
+### Independent geometry benchmark — measure real stall discovery
+
+Rather than repeatedly tuning threshold rules from preview images, mark a
+small region of **all verifiable true parking stalls** in the original video
+(including empty bays) and compare proposed polygons with one-to-one IoU
+matching. Human annotations stay in ignored `evaluation_runs/` and do
+**not** become production configurations.
+
+```cmd
+.venv\Scripts\python.exe -m backend.stall_discovery_benchmark annotate --video footage/stockvidsample2.mp4 --frame 0 --output evaluation_runs/stall_benchmark_camera1
+```
+
+Press R then click two region corners, mark four corners of **every**
+verifiable stall inside it, then S to save local human reference geometry.
+Compare **both** Phase 4 variants and full-versus-shortlisted candidates:
+
+```cmd
+.venv\Scripts\python.exe -m backend.stall_discovery_benchmark score --truth evaluation_runs/stall_benchmark_camera1/ground_truth.json --proposals evaluation_runs/row_continuity_camera1/row_comparison.json --output evaluation_runs/stall_benchmark_camera1/phase4_scores.json
+```
+
+See [independent discovery benchmark and bias limitations](docs/EXPERIMENT_STALL_DISCOVERY_BENCHMARK.md).
+Geometry precision/recall is **not** configured-space occupancy accuracy.
+
+
 
 
 ### Phase 3 — Rank unverified stall hypotheses and filter likely car artifacts

@@ -99,11 +99,11 @@ To compare against the earlier run on your Windows PC, generate a **new**
 Phase 2 experiment directory:
 
 ```cmd
-cd /d C:UsersFardinUniParkingBuddy
+cd /d C:\Users\Fardin\UniParkingBuddy
 git pull --ff-only
-.venvScriptspython.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1_ground --hypotheses evaluation_runs/discovery_camera1/hypotheses.json
-start "" "evaluation_runsgeometry_camera1_groundground_line_evidence.png"
-start "" "evaluation_runsgeometry_camera1_groundgeometry_preview.png"
+.venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1_ground --hypotheses evaluation_runs/discovery_camera1/hypotheses.json
+start "" "evaluation_runs\geometry_camera1_ground\ground_line_evidence.png"
+start "" "evaluation_runs\geometry_camera1_ground\geometry_preview.png"
 ```
 
 **Review both images.** In `ground_line_evidence.png`, green strokes
@@ -122,8 +122,8 @@ For the existing Phase 3 reviewer, use the newly generated geometry file
 and another new output folder:
 
 ```cmd
-.venvScriptspython.exe -m backend.review_stall_candidates --video footage/stockvidsample2.mp4 --geometry evaluation_runs/geometry_camera1_ground/stall_candidates.json --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --output evaluation_runs/review_camera1_ground
-start "" "evaluation_runseview_camera1_groundeview_preview.png"
+.venv\Scripts\python.exe -m backend.review_stall_candidates --video footage/stockvidsample2.mp4 --geometry evaluation_runs/geometry_camera1_ground/stall_candidates.json --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --output evaluation_runs/review_camera1_ground
+start "" "evaluation_runs\review_camera1_ground\review_preview.png"
 ```
 
 If very few true stalls survive, capture the **missed marked separators**

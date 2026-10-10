@@ -12,6 +12,7 @@ import unittest
 import psycopg
 
 from backend.occupancy_repository import OccupancyRepository, SCHEMA_PATH
+from backend.occupancy_writer import persist_processed_observation
 
 
 def sample_config():
@@ -221,6 +222,24 @@ class PostgreSQLRepositoryTests(unittest.TestCase):
         )
         self.assertEqual(self.repository.lot_summary("lot1")["available_spaces"], 1)
         self.assertEqual(self.repository.lot_summary("lot2")["occupied_spaces"], 1)
+
+
+    def test_processed_cv_result_flows_into_persisted_history(self):
+        self.register()
+        at = datetime.now(timezone.utc)
+        persist_processed_observation(
+            self.repository, "camera_1",
+            [{"id": 2, "open": False}, {"id": 7, "open": True}],
+            at,
+        )
+        self.assertEqual(
+            self.repository.lot_summary("lot1")["occupied_spaces"], 1
+        )
+        self.assertEqual(
+            self.repository.space_history("lot1", "2")[0],
+            {"status": "OCCUPIED", "observed_at": at},
+        )
+        self.assertTrue(self.repository.lot_summary("lot1")["complete"])
 
 
 if __name__ == "__main__":

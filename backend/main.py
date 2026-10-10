@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from ultralytics import YOLO
 from yolo_detection import (
     VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
-    boxes_from_yolo_result,
+    INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
 )
 from pathlib import Path
 import numpy as np
@@ -75,7 +75,7 @@ for i in camera_captures:
 
 #yolo model
 model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
-DETECT_EVERY = 30
+DETECT_EVERY = INFERENCE_EVERY_FRAMES
 
 mode = "play"
 

@@ -20,6 +20,9 @@ import cv2
 import numpy as np
 
 from .accuracy_evaluation import PROJECT_ROOT, file_sha256, sample_frame_indices
+from .ground_paint_evidence import (
+    filter_ground_supported_lines, render_line_context,
+)
 
 
 def marking_mask(frame):
@@ -316,7 +319,8 @@ def render_geometry_preview(frame, lines, proposals):
 
 
 def analyze_video_markings(video_path, output_dir, requested_frames=12,
-                           support_fraction=0.5, hypotheses_path=None):
+                           support_fraction=0.5, hypotheses_path=None,
+                           use_ground_filter=True, ground_min_fraction=0.33):
     """Generate read-only local marking and geometry evidence for a video."""
     video_path = Path(video_path).resolve()
     output_dir = Path(output_dir)
@@ -348,7 +352,13 @@ def analyze_video_markings(video_path, output_dir, requested_frames=12,
         cap.release()
 
     persistence = persistent_markings(frames, support_fraction)
-    lines = detect_marking_lines(persistence)
+    raw_lines = detect_marking_lines(persistence)
+    ground_lines, line_evidence = filter_ground_supported_lines(
+        raw_lines, frames, minimum_fraction=ground_min_fraction
+    )
+    lines = ground_lines if use_ground_filter else raw_lines
+    # Keep raw counts to make overly strict filtering visible to reviewers.
+    raw_candidate_count = len(propose_stall_geometry(raw_lines, frames[0].shape))
     candidates = propose_stall_geometry(lines, frames[0].shape)
     source_hash = file_sha256(video_path)
     if hypotheses_path is not None:
@@ -363,12 +373,20 @@ def analyze_video_markings(video_path, output_dir, requested_frames=12,
         "source_video_sha256": source_hash,
         "sampled_frame_indices": indices,
         "paint_pixel_support_fraction": support_fraction,
-        "detected_paint_like_line_count": len(lines),
+        "detected_paint_like_line_count": len(raw_lines),
+        "ground_supported_line_count": len(ground_lines),
+        "ground_filter_enabled": use_ground_filter,
+        "minimum_ground_contrast_fraction": ground_min_fraction,
+        "line_context_evidence": line_evidence,
+        "raw_geometry_candidate_count": raw_candidate_count,
         "geometry_candidate_count": len(candidates),
         "phase1_hypotheses_used": hypotheses_path is not None,
         "candidates": candidates,
         "limitations": [
             "Paint-like pixels and paired strokes can be curbs, vehicle edges, lanes or shadows.",
+            "Dark-flank contrast rejects some vehicle-surface edges but can reject real lines on bright pavement.",
+            "Line-context support is a heuristic and must be compared against original frames.",
+            "The ungated candidate count is diagnostic only, not a count of real parking spaces.",
             "Two near-parallel lines alone do not establish a legal parking stall.",
             "Occluded markings, changing lighting and moving camera viewpoints can hide real stalls.",
             "No fixed-view motion compensation, homography or verified painted boundary mapping.",
@@ -383,6 +401,9 @@ def analyze_video_markings(video_path, output_dir, requested_frames=12,
     if not cv2.imwrite(
         str(output_dir / "persistent_markings.png"), persistence
     ) or not cv2.imwrite(
+        str(output_dir / "ground_line_evidence.png"),
+        render_line_context(frames[0], line_evidence)
+    ) or not cv2.imwrite(
         str(output_dir / "geometry_preview.png"),
         render_geometry_preview(frames[0], lines, candidates)
     ):
@@ -396,18 +417,31 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--frames", type=int, default=12)
     parser.add_argument("--paint-support", type=float, default=0.5)
+    parser.add_argument(
+        "--ground-min-fraction", type=float, default=0.33,
+        help="Experimental bright-paint/dark-flank support fraction in sampled frames"
+    )
+    parser.add_argument(
+        "--no-ground-filter", action="store_true",
+        help="Diagnostic: reproduce prior bright-line candidates without the ground gate"
+    )
     parser.add_argument("--hypotheses", type=Path,
                         help="Optional Phase-1 hypotheses.json for matching evidence")
     args = parser.parse_args(argv)
     try:
         report = analyze_video_markings(
             args.video, args.output, args.frames,
-            support_fraction=args.paint_support, hypotheses_path=args.hypotheses
+            support_fraction=args.paint_support, hypotheses_path=args.hypotheses,
+            use_ground_filter=not args.no_ground_filter,
+            ground_min_fraction=args.ground_min_fraction
         )
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
         print(f"Parking-marking experiment failed: {error}", file=sys.stderr)
         return 1
-    print(f"Found {report['detected_paint_like_line_count']} paint-like line segments")
+    print(f"Found {report['detected_paint_like_line_count']} raw bright segments; "
+          f"{report['ground_supported_line_count']} with dark-flank contrast support")
+    print(f"Raw ungated geometry count: {report['raw_geometry_candidate_count']} "
+          "(not a parking-stall count)")
     print(f"Proposed {report['geometry_candidate_count']} UNVERIFIED quadrilateral hypotheses")
     print(f"Review local results in {args.output}; no live parking data was changed.")
     return 0

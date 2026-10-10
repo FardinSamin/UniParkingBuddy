@@ -157,6 +157,24 @@ Review local `hypotheses.json` and `preview.png`. Use a new output folder
 for each experiment. The preview may include people or vehicle details;
 do not publish it without appropriate permission/privacy review.
 [Experiment instructions and limitations](docs/EXPERIMENT_AUTOMATIC_DISCOVERY.md)
+
+### Phase 2 — Painted parking-line and candidate quadrilateral evidence
+
+The additional **read-only** offline command inspects bright, persistent
+marking strokes, pairs plausible neighboring separators into **unverified
+quadrilateral suggestions**, and optionally compares them to the Phase 1
+vehicle-location evidence:
+
+```cmd
+.venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1 --hypotheses evaluation_runs/discovery_camera1/hypotheses.json
+```
+
+Use a **new output folder**; omit `--hypotheses` if Phase 1 data is absent.
+Outputs are local previews and `stall_candidates.json`; they are **not**
+approved space regions or valid evidence of occupancy. Bright lane edges,
+vehicle contours and camera perspective can generate false candidates.
+See [Phase 2 instructions and limitations](docs/EXPERIMENT_STALL_GEOMETRY.md).
+
 and [research architecture](docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md).
 
 ## Validation and team reproduction

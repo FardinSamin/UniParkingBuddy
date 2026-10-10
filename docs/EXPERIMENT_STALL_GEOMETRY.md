@@ -101,7 +101,7 @@ Phase 2 experiment directory:
 ```cmd
 cd /d C:\Users\Fardin\UniParkingBuddy
 git pull --ff-only
-.venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1_ground --hypotheses evaluation_runs/discovery_camera1/hypotheses.json
+.venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1_ground --hypotheses evaluation_runs/discovery_camera1/hypotheses.json --ground-filter
 start "" "evaluation_runs\geometry_camera1_ground\ground_line_evidence.png"
 start "" "evaluation_runs\geometry_camera1_ground\geometry_preview.png"
 ```
@@ -113,10 +113,12 @@ line count*, *raw ungated geometry count* and *gated geometry count*.
 These counts are evidence about the algorithm only, not how many stalls
 actually exist. The data still contain **unverified** proposals.
 
-To reproduce the earlier algorithm for a controlled comparison, use
-`--no-ground-filter` with a **different output folder**; do not overwrite
-prior evidence. The experiment's `--ground-min-fraction` option adjusts
-a heuristic, not a course-level performance requirement.
+The original ungated behavior remains the **default**, so a normal
+Phase 2 run without `--ground-filter` preserves earlier candidate coverage.
+Use **different output directories** for a controlled comparison; do not
+overwrite prior evidence. The optional `--ground-filter` and trial
+`--ground-min-fraction` controls are research settings, not course-level
+performance requirements.
 
 For the existing Phase 3 reviewer, use the newly generated geometry file
 and another new output folder:

@@ -1,47 +1,47 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
-
-interface ParkingLot2 {
-  id: number
-  occupied: boolean
-}
-
-interface StatusResponse {
-  cars_detected: number
-  parking_spaces: ParkingLot2[]
-}
+import { fetchParkingStatus, type ParkingSpaceStatus } from '../parkingStatus'
 
 function ParkingLot2() {
-  const [spaces, setSpaces] = useState<ParkingLot2[]>([])
+  const [spaces, setSpaces] = useState<ParkingSpaceStatus[]>([])
+  const [loading, setLoading] = useState(true)
   const [carCount, setCarCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
+    let active = true
+    let requestInProgress = false
+
     const fetchSpaces = () => {
-      fetch('http://localhost:5000/api/status/camera_2')
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Failed to fetch')
-          }
-          return res.json()
-        })
-        .then((data: StatusResponse) => {
+      if (requestInProgress) return
+
+      requestInProgress = true
+      fetchParkingStatus('camera_2')
+        .then((data) => {
+          if (!active) return
           setSpaces(data.parking_spaces)
           setCarCount(data.cars_detected)
           setError(null)
+          setLoading(false)
         })
         .catch(() => {
-          setError('Could not reach parking status server')
+          if (!active) return
+          setError('Current parking status is unavailable. Check the backend and space configuration.')
+          setLoading(false)
+        })
+        .finally(() => {
+          requestInProgress = false
         })
     }
 
     fetchSpaces()
-
     const interval = setInterval(fetchSpaces, 1000)
-
-    return () => clearInterval(interval)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
   }, [])
 
   const occupiedCount = spaces.filter((s) => s.occupied).length
@@ -63,9 +63,11 @@ function ParkingLot2() {
       </div>
 
       <div className="dashboard-body">
-        {error && <p className="error">{error}</p>}
-
-        {!error && (
+        {loading ? (
+          <p role="status">Checking parking availability...</p>
+        ) : error ? (
+          <p className="error" role="alert">{error}</p>
+        ) : (
           <>
             <div className="dashboard-stats">
               <div className="stat-card">

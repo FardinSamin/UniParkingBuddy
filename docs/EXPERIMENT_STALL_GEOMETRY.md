@@ -34,44 +34,44 @@ segmentation or specialized parking-line models.
 Update the repository after PR is merged. **You do not need to start React
 or FastAPI** for this offline experiment.
 
-\`\`\`cmd
+```cmd
 cd /d C:\Users\Fardin\UniParkingBuddy
 git pull --ff-only
 .venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/stockvidsample2.mp4 --output evaluation_runs/geometry_camera1 --hypotheses evaluation_runs/discovery_camera1/hypotheses.json
-\`\`\`
+```
 
 If you did not run Phase 1 or no longer have its output, simply **omit**
-\`--hypotheses\` to inspect paint/geometry alone:
+`--hypotheses` to inspect paint/geometry alone:
 
-\`\`\`cmd
+```cmd
 .venv\Scripts\python.exe -m backend.discover_stall_geometry --video footage/parkinglotfootage1_1.mp4 --output evaluation_runs/geometry_camera2
-\`\`\`
+```
 
-You can also use \`--video "C:\some\authorized\fixed_view.mp4"\` and any
-new output folder. For controlled experiments, \`--frames 12\` and
-\`--paint-support 0.5\` may be changed, but these are trial engineering
+You can also use `--video "C:\some\authorized\fixed_view.mp4"` and any
+new output folder. For controlled experiments, `--frames 12` and
+`--paint-support 0.5` may be changed, but these are trial engineering
 parameters, **not accepted accuracy thresholds**. Every experiment must
 use a new output directory. The script does not overwrite prior evidence.
 
 Open the generated overlays:
 
-\`\`\`cmd
+```cmd
 start "" "evaluation_runs\geometry_camera1\geometry_preview.png"
 start "" "evaluation_runs\geometry_camera1\persistent_markings.png"
-\`\`\`
+```
 
 The files contain:
 
-- \`persistent_markings.png\`: bright paint-like pixels retained across
+- `persistent_markings.png`: bright paint-like pixels retained across
   sampled frames, not a verified marking classifier.
-- \`geometry_preview.png\`: thin **yellow** stroke detections; numbered
+- `geometry_preview.png`: thin **yellow** stroke detections; numbered
   **cyan** geometry-only hypotheses or **magenta** hypotheses with Phase 1
   vehicle-anchor corroboration. All are unverified.
-- \`stall_candidates.json\`: image coordinates of suggested quadrilaterals,
+- `stall_candidates.json`: image coordinates of suggested quadrilaterals,
   paired strokes, relative geometry ranking, optional matching Phase 1
   proposal IDs, video checksum, frames, and limitations.
 
-If \`--hypotheses\` is supplied from **a different video**, processing
+If `--hypotheses` is supplied from **a different video**, processing
 fails rather than fusing incompatible geometry. The number of candidates
 can be zero, and many can be false/duplicated. Neither zero nor many
 candidates proves anything about real parking availability.
@@ -88,14 +88,14 @@ uncertain**, plus missed visible stalls. A successful experiment may
 identify some previously unseen **empty** marked stalls, but a proposed
 quadrilateral is still a hypothesis, not an approved map.
 
-**Never copy \`suggested_quadrilateral_xy\` directly into live
-\`configs/camera_*.json\`**, and do not use proposed counts in React or
+**Never copy `suggested_quadrilateral_xy` directly into live
+`configs/camera_*.json`**, and do not use proposed counts in React or
 PostgreSQL. Geometry ranking is not calibrated confidence. A later
 explicit approval interface and full validation must happen first.
 The existing manual calibration editor is available as a correction
 fallback after the real boundaries are checked.
 
-The local \`evaluation_runs/\` folder is Git-ignored; previews can
+The local `evaluation_runs/` folder is Git-ignored; previews can
 include people, faces or license plates from the source video. Do not
 publish previews, raw frames or private images without permission.
 

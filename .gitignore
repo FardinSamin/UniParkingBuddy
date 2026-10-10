@@ -1,0 +1,13 @@
+# Local evaluation previews, independently annotated labels and results.
+# These may contain frames from demo videos; never commit accidentally.
+/evaluation_runs/
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+
+# Local development and secrets
+.venv/
+.env
+.env.*
+!.env.example

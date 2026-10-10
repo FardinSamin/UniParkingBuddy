@@ -1,7 +1,9 @@
-"""Flask API contract tests without YOLO or OpenCV GUI startup."""
+"""FastAPI contract tests without YOLO or OpenCV GUI startup."""
 
 import threading
 import unittest
+
+from fastapi.testclient import TestClient
 
 from backend.status_api import create_status_app, invalidate_camera_status
 
@@ -24,18 +26,17 @@ class StatusApiTests(unittest.TestCase):
         self.status = {}
         self.lock = threading.Lock()
         self.app = create_status_app(self.cameras, self.status, self.lock)
-        self.app.testing = True
-        self.client = self.app.test_client()
+        self.client = TestClient(self.app)
 
     def test_unrecognized_camera_returns_404(self):
         response = self.client.get("/api/status/camera_99")
         self.assertEqual(response.status_code, 404)
-        self.assertIn("error", response.get_json())
+        self.assertIn("error", response.json())
 
     def test_active_camera_without_processed_frame_returns_503(self):
         response = self.client.get("/api/status/camera_1")
         self.assertEqual(response.status_code, 503)
-        self.assertIn("not ready", response.get_json()["error"].lower())
+        self.assertIn("not ready", response.json()["error"].lower())
 
     def test_empty_configured_spot_list_returns_503(self):
         self.status["camera_1"] = {
@@ -49,7 +50,7 @@ class StatusApiTests(unittest.TestCase):
         self.status["camera_1"] = processed_status()
         response = self.client.get("/api/status/camera_1")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), {
+        self.assertEqual(response.json(), {
             "cars_detected": 2,
             "vehicles_in_spaces": 1,
             "vehicles_outside_spaces": 1,
@@ -70,7 +71,7 @@ class StatusApiTests(unittest.TestCase):
         response = self.client.get("/api/status/camera_1")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(all(
-            item["occupied"] for item in response.get_json()["parking_spaces"]
+            item["occupied"] for item in response.json()["parking_spaces"]
         ))
 
     def test_after_read_failure_status_becomes_unavailable(self):

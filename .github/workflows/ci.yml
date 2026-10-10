@@ -85,11 +85,26 @@ jobs:
         run: python -m unittest discover -s backend/tests -p 'test_cv_db_api_integration.py' -v
 
   yolo-video-inference:
-    name: Real YOLO inference smoke (CPU)
+    name: Real YOLO to PostgreSQL and FastAPI (CPU)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: uniparkingbuddy_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d uniparkingbuddy_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       RUN_REAL_YOLO_SMOKE: '1'
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/uniparkingbuddy_test
       YOLO_CONFIG_DIR: /tmp/uniparkingbuddy-yolo-config
       OMP_NUM_THREADS: '2'
       MKL_NUM_THREADS: '2'
@@ -100,9 +115,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install YOLO and headless OpenCV
-        run: python -m pip install ultralytics opencv-python-headless
+      - name: Install model, database and FastAPI dependencies
+        run: python -m pip install ultralytics opencv-python-headless fastapi uvicorn httpx 'psycopg[binary]>=3.2,<4'
       - name: Run headless inference on both camera videos
         run: python -m unittest discover -s backend/tests -p 'test_real_yolo_inference.py' -v
+      - name: Test real YOLO frames through PostgreSQL and FastAPI
+        run: python -m unittest discover -s backend/tests -p 'test_real_video_db_api.py' -v
       - name: Test blind accuracy bundle with real YOLO predictions
         run: python -m unittest discover -s backend/tests -p 'test_accuracy_bundle_smoke.py' -v

@@ -70,9 +70,9 @@ read-only browser access, and absence of startup side effects on import.
 ## What is intentionally not part of this PR
 
 - No new end-user feature or authentication system.
-- No new public write endpoint. The separately required **trusted CV
-  ingestion/validation interface** and configured-lot query responsibilities
-  will be addressed in the following focused stage.
+- No public write endpoint. The **trusted CV ingestion/validation**
+  interface and read-only configured-lot queries are implemented separately;
+  see `docs/API_CONTRACT.md` for their data contracts and validation.
 - No changes to the existing PostgreSQL schema, historical math, ROI
   geometry, YOLO confidence/classes, or frontend component appearance.
 - No claimed classification accuracy or end-to-end UI timing result.

@@ -114,7 +114,7 @@ for name in camera_captures:
 
 latest_status = {}
 status_lock = threading.Lock()
-app = create_status_app(camera_captures, latest_status, status_lock)
+app = create_status_app(camera_captures, latest_status, status_lock, persistence)
 
 def run_api():
     app.run(port=5000, debug=False, use_reloader=False)

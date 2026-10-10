@@ -242,5 +242,68 @@ class PostgreSQLRepositoryTests(unittest.TestCase):
         self.assertTrue(self.repository.lot_summary("lot1")["complete"])
 
 
+    def test_history_can_be_bounded_to_recent_observations(self):
+        self.register()
+        base = datetime.now(timezone.utc) - timedelta(minutes=5)
+        for minute in range(3):
+            self.repository.record_observations(
+                "lot1",
+                [{"space_id": "2", "status":
+                  "OCCUPIED" if minute % 2 else "AVAILABLE"}],
+                base + timedelta(minutes=minute),
+            )
+        records = self.repository.space_history("lot1", "2", limit=2)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["observed_at"], base + timedelta(minutes=2))
+        self.assertEqual(records[1]["observed_at"], base + timedelta(minutes=1))
+        self.assertEqual(len(self.repository.space_history("lot1", "2")), 3)
+
+    def test_lot_spaces_distinguishes_missing_from_empty(self):
+        self.assertIsNone(self.repository.lot_spaces("missing"))
+        self.repository.register_lot_configuration(
+            "lot1", "Lot 1", {"version": 1, "next_space_id": 1, "spaces": []}
+        )
+        self.assertEqual(self.repository.lot_spaces("lot1"), [])
+        self.register()
+        self.assertEqual(self.repository.lot_spaces("lot1"), ["2", "7"])
+
+    def test_hourly_trends_reflect_only_recorded_recent_observations(self):
+        self.register()
+        recent = datetime.now(timezone.utc) - timedelta(minutes=1)
+        old = recent - timedelta(days=20)
+        self.repository.record_observations(
+            "lot1",
+            [{"space_id": "2", "status": "OCCUPIED"},
+             {"space_id": "7", "status": "AVAILABLE"}],
+            recent,
+        )
+        self.repository.record_observations(
+            "lot1",
+            [{"space_id": "2", "status": "OCCUPIED"}],
+            old,
+        )
+        rows = self.repository.hourly_occupancy_trends("lot1", days=7)
+        self.assertEqual(sum(row["observations"] for row in rows), 2)
+        self.assertEqual(sum(row["occupied_observations"] for row in rows), 1)
+        self.assertEqual(rows[0]["occupied_percent"], 50.0)
+        self.assertEqual(rows[0]["hour_utc"], recent.hour)
+        self.assertEqual(self.repository.hourly_occupancy_trends("lot2"), [])
+
+    def test_trends_do_not_invent_empty_hours(self):
+        self.register()
+        self.assertEqual(self.repository.hourly_occupancy_trends("lot1"), [])
+
+    def test_history_and_trend_filters_validate_inputs(self):
+        self.register()
+        for days in (0, 32, True, -7, 0.5, "7"):
+            with self.subTest(days=days):
+                with self.assertRaises(ValueError):
+                    self.repository.hourly_occupancy_trends("lot1", days)
+        for limit in (0, 501, True, -1, "100"):
+            with self.subTest(limit=limit):
+                with self.assertRaises(ValueError):
+                    self.repository.space_history("lot1", "2", limit)
+
+
 if __name__ == "__main__":
     unittest.main()

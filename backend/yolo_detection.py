@@ -7,6 +7,7 @@ test); this module does not download weights or launch video windows.
 VEHICLE_CLASS_IDS = (2, 3, 7)  # COCO: car, motorcycle, truck
 DETECTION_CONFIDENCE = 0.20
 INFERENCE_IMAGE_SIZE = 1280
+INFERENCE_EVERY_FRAMES = 30  # Live inference cadence, also used for evaluation
 
 
 def boxes_from_yolo_result(result):

@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from backend.space_matching import assign_detections_to_spaces
+from backend.space_matching import assign_detections_to_spaces, build_space_statuses
 
 
 def rectangle(x1, y1, x2, y2):
@@ -89,6 +89,20 @@ class SpaceMatchingTests(unittest.TestCase):
         )
         self.assertEqual(matches, [None])
         self.assertEqual(occupied, [False])
+
+
+    def test_statuses_use_stable_ids_not_list_positions(self):
+        configured = [{"id": 2}, {"id": 7}]
+        statuses = build_space_statuses(configured, [True, False])
+        self.assertEqual(statuses, [
+            {"id": 2, "open": False},
+            {"id": 7, "open": True},
+        ])
+
+    def test_statuses_reject_mismatched_space_count(self):
+        with self.assertRaises(ValueError):
+            build_space_statuses([{"id": 2}], [])
+
 
 
 if __name__ == '__main__':

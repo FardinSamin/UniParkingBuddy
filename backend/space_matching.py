@@ -31,3 +31,14 @@ def assign_detections_to_spaces(boxes, contours):
         matches.append(matched)
 
     return matches, occupied
+
+
+def build_space_statuses(configured_spaces, occupied_flags):
+    """Pair occupancy decisions with stable IDs rather than list positions."""
+    if len(configured_spaces) != len(occupied_flags):
+        raise ValueError("Space configuration and occupancy lengths must match")
+
+    return [
+        {"id": space["id"], "open": not occupied}
+        for space, occupied in zip(configured_spaces, occupied_flags)
+    ]

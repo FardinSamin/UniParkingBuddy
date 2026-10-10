@@ -1,17 +1,26 @@
 import cv2
 from ultralytics import YOLO
-import pickle
+from pathlib import Path
 import numpy as np
 import threading
 from flask import Flask, jsonify
 from flask_cors import CORS
-from space_matching import assign_detections_to_spaces
+from space_matching import assign_detections_to_spaces, build_space_statuses
+from parking_config import (
+    ParkingConfigError, add_space, load_config, remove_space, save_config,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def config_path(camera_name):
+    return PROJECT_ROOT / 'configs' / f'{camera_name}.json'
 
 #camera sources
 def make_camera(path):
     return {
-        "source": cv2.VideoCapture(path),
-        "posList": [],
+        "source": cv2.VideoCapture(str(PROJECT_ROOT / path)),
+        "config": None,
         "current_points": [],
         "last_boxes": [],
         "frame_idx": 0,
@@ -24,31 +33,25 @@ camera_captures = {
     "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
 }
 
-#format video display window
-for i in camera_captures: 
-    cv2.namedWindow(i, cv2.WINDOW_NORMAL) #allows to manually resize window
-    cv2.resizeWindow(i, 1280, 720) #sets initial window size
+# Fail clearly if a saved lot configuration is missing or invalid.
+# Never silently turn a damaged configuration into an apparently empty lot.
+try:
+    for name, cam in camera_captures.items():
+        cam["config"] = load_config(config_path(name))
+except ParkingConfigError as error:
+    for cam in camera_captures.values():
+        cam["source"].release()
+    raise SystemExit(f"Parking configuration error: {error}")
 
+#format video display window
+for i in camera_captures:
+    cv2.namedWindow(i, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(i, 1280, 720)
 
 #yolo model
-model = YOLO('yolo26n.pt')
+model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
 CARS = [2,3,7] #2=car, 3=motorcycle, 7=truck
 DETECT_EVERY = 30
-
-
-def pos_file(name):
-    return f"CarPos_{name}"
-
-def save_positions(name):
-    with open(pos_file(name), "wb") as f:
-        pickle.dump(camera_captures[name]["posList"], f)
-
-for name, cam in camera_captures.items():
-    try:
-        with open(pos_file(name), "rb") as f:
-            cam["posList"] = pickle.load(f)
-    except FileNotFoundError:
-        pass
 
 mode = "play"
 
@@ -60,16 +63,29 @@ def mouseClick(event, x, y, _flags, name):
     if event == cv2.EVENT_LBUTTONDOWN:
         cam["current_points"].append((x, y))
         if len(cam["current_points"]) == 4:
-            cam["posList"].append(cam["current_points"].copy())
-            cam["current_points"].clear()
-            save_positions(name)
+            try:
+                updated = add_space(cam["config"], cam["current_points"])
+                save_config(config_path(name), updated)
+            except (ParkingConfigError, OSError) as error:
+                print(f"{name}: unable to add parking space: {error}")
+            else:
+                cam["config"] = updated
+                print(f"{name}: added space {updated['next_space_id'] - 1}")
+            finally:
+                cam["current_points"].clear()
 
     elif event == cv2.EVENT_RBUTTONDOWN:
-        for idx, pts in enumerate(cam["posList"]):
-            contour = np.array(pts, dtype=np.int32).reshape((-1, 1, 2))
+        for space in cam["config"]["spaces"]:
+            contour = np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
             if cv2.pointPolygonTest(contour, (float(x), float(y)), False) >= 0:
-                cam["posList"].pop(idx)
-                save_positions(name)
+                try:
+                    updated = remove_space(cam["config"], space["id"])
+                    save_config(config_path(name), updated)
+                except (ParkingConfigError, OSError) as error:
+                    print(f"{name}: unable to remove parking space: {error}")
+                else:
+                    cam["config"] = updated
+                    print(f"{name}: removed space {space['id']}")
                 break
 
 for name in camera_captures:
@@ -132,8 +148,8 @@ while True:
         # Use one spatial association result for both the occupancy counts
         # and the visual markers. A vehicle matches at most one space.
         contours = [
-            np.array(points, dtype=np.int32).reshape((-1, 1, 2))
-            for points in cap["posList"]
+            np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
+            for space in cap["config"]["spaces"]
         ]
         matched_spaces, occupied_spaces = assign_detections_to_spaces(
             cap["last_boxes"], contours
@@ -152,7 +168,7 @@ while True:
                 label = f"OUTSIDE SPACE {conf:.2f}"
             else:
                 color = (0, 0, 255)  # red: matched to a space (BGR)
-                label = f"SPACE {space_index + 1} {conf:.2f}"
+                label = f"SPACE {cap['config']['spaces'][space_index]['id']} {conf:.2f}"
 
             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
             cv2.rectangle(display, (x1, y1), (x2, y2), color, 2)
@@ -171,10 +187,12 @@ while True:
             (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
         )
 
-        space_status = []
+        space_status = build_space_statuses(
+            cap["config"]["spaces"], occupied_spaces
+        )
         for i, contour in enumerate(contours):
             occupied = occupied_spaces[i]
-            space_status.append({"id": i + 1, "open": not occupied})
+            space_id = cap["config"]["spaces"][i]["id"]
 
             if mode == "mark":
                 color = (255, 0, 0)  # blue while marking (BGR)
@@ -185,7 +203,7 @@ while True:
             lx = int(np.mean(contour[:, 0, 0]))
             ly = int(np.mean(contour[:, 0, 1]))
             cv2.putText(
-                display, str(i + 1), (lx, ly),
+                display, str(space_id), (lx, ly),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
             )
 

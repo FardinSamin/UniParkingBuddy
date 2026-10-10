@@ -2,6 +2,10 @@ import cv2
 import os
 from datetime import datetime, timezone
 from ultralytics import YOLO
+from yolo_detection import (
+    VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
+    boxes_from_yolo_result,
+)
 from pathlib import Path
 import numpy as np
 import threading
@@ -71,7 +75,6 @@ for i in camera_captures:
 
 #yolo model
 model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
-CARS = [2,3,7] #2=car, 3=motorcycle, 7=truck
 DETECT_EVERY = 30
 
 mode = "play"
@@ -140,11 +143,12 @@ while True:
 
         new_inference = cap["frame_idx"] % DETECT_EVERY == 0
         if new_inference:
-            results = model(frame, classes=CARS, conf=0.20, imgsz=1280, verbose=False)[0]
-            cap["last_boxes"] = []
-            for box in results.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cap["last_boxes"].append((x1, y1, x2, y2, float(box.conf[0])))
+            results = model(
+                frame, classes=list(VEHICLE_CLASS_IDS),
+                conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
+                verbose=False,
+            )[0]
+            cap["last_boxes"] = boxes_from_yolo_result(results)
         cap["frame_idx"] += 1
 
         display = cap["frame"].copy()

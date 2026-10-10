@@ -83,3 +83,24 @@ jobs:
         run: python -m unittest discover -s backend/tests -p 'test_occupancy_repository.py' -v
       - name: Test CV through PostgreSQL and HTTP API
         run: python -m unittest discover -s backend/tests -p 'test_cv_db_api_integration.py' -v
+
+  yolo-video-inference:
+    name: Real YOLO inference smoke (CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUN_REAL_YOLO_SMOKE: '1'
+      YOLO_CONFIG_DIR: /tmp/uniparkingbuddy-yolo-config
+      OMP_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+    steps:
+      - name: Check out repository with committed model and video samples
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install YOLO and headless OpenCV
+        run: python -m pip install ultralytics opencv-python-headless
+      - name: Run headless inference on both camera videos
+        run: python -m unittest discover -s backend/tests -p 'test_real_yolo_inference.py' -v

@@ -27,6 +27,7 @@ def truth(spaces):
         "source_video_sha256": HASH,
         "frame_index": 0,
         "frame_size": [360, 240],
+        "evaluation_roi_xyxy": [0, 0, 359, 239],
         "spaces": [{"id": i, "points": p} for i, p in enumerate(spaces, 1)],
     }
 
@@ -192,6 +193,45 @@ class BenchmarkTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 score_file("missing.json", "missing_proposals.json", destination)
             self.assertEqual(destination.read_text(), "original")
+
+
+    def test_roi_scope_excludes_unknown_scene_from_precision(self):
+        limited = truth([self.actual[0]])
+        limited["evaluation_roi_xyxy"] = [0, 0, 100, 180]
+        report = score_ground_truth(limited, phase2([
+            candidate(self.actual[0], "L001"),
+            candidate(self.actual[1], "L002"),
+        ]))
+        values = report["metrics"]["phase2_all"]
+        self.assertEqual(values["predicted_candidate_count"], 1)
+        self.assertEqual(values["excluded_outside_roi"], 1)
+        self.assertEqual(values["iou_thresholds"]["0.5"]["true_positive"], 1)
+        self.assertEqual(values["iou_thresholds"]["0.5"]["false_positive"], 0)
+
+    def test_wrong_roi_or_partly_outside_truth_is_rejected(self):
+        invalid = truth(self.actual)
+        invalid["evaluation_roi_xyxy"] = [0, 0, 100, 180]
+        with self.assertRaisesRegex(ValueError, "inside its ROI"):
+            validate_truth(invalid)
+        invalid["evaluation_roi_xyxy"] = [50, 50, 40, 120]
+        with self.assertRaisesRegex(ValueError, "must lie inside"):
+            validate_truth(invalid)
+
+    def test_annotator_selects_roi_using_two_clicks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "fixture.mp4"
+            source.write_bytes(b"test-input")
+            session = BlindLayoutAnnotation(
+                source, np.zeros((120, 220, 3), dtype=np.uint8), display_width=660
+            )
+            session.start_roi()
+            session.click(30, 30)
+            session.click(450, 300)
+            self.assertEqual(session.evaluation_roi, [10, 10, 150, 100])
+            for px, py in ((60, 60), (120, 60), (120, 150), (60, 150)):
+                session.click(px, py)
+            self.assertEqual(len(session.spaces), 1)
+            self.assertEqual(session.truth()["evaluation_roi_xyxy"], [10, 10, 150, 100])
 
     def test_input_truth_is_unchanged_after_scoring(self):
         before = json.dumps(self.gt, sort_keys=True)

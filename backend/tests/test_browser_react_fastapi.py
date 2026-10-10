@@ -53,6 +53,7 @@ class ReadOnlyHistoryFixture:
 
     def __init__(self, camera_captures):
         self.camera_captures = camera_captures
+        self.unavailable = False
 
     def lot_spaces(self, lot_id):
         for camera, (configured_lot, _) in CAMERA_LOTS.items():
@@ -64,6 +65,8 @@ class ReadOnlyHistoryFixture:
         return None
 
     def hourly_occupancy_trends(self, lot_id, days):
+        if self.unavailable:
+            raise RuntimeError("Simulated history storage outage for browser test")
         if self.lot_spaces(lot_id) is None:
             raise ValueError("Unknown lot")
         return [{
@@ -89,7 +92,7 @@ class ReadOnlyHistoryFixture:
 class ReactFastAPIBrowserTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import sync_playwright, expect
         import uvicorn
 
         cls.cameras = {
@@ -99,10 +102,8 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         cls.lock = threading.Lock()
         cls.live = {}
         cls.restore_live_status()
-        app = create_status_app(
-            cls.cameras, cls.live, cls.lock,
-            ReadOnlyHistoryFixture(cls.cameras),
-        )
+        cls.history = ReadOnlyHistoryFixture(cls.cameras)
+        app = create_status_app(cls.cameras, cls.live, cls.lock, cls.history)
 
         cls.api_port = unused_local_port()
         cls.frontend_port = unused_local_port()
@@ -153,9 +154,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         cls.addClassCleanup(cls.playwright.stop)
         cls.browser = cls.playwright.chromium.launch(headless=True)
         cls.addClassCleanup(cls.browser.close)
-        cls.expect = staticmethod(__import__(
-            "playwright.sync_api", fromlist=["expect"]
-        ).expect)
+        cls.expect = staticmethod(expect)
 
     @classmethod
     def restore_live_status(cls):
@@ -198,8 +197,12 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         page.goto(self.base_url, wait_until="domcontentloaded")
         cards = page.locator(".lot-card")
         self.expect(cards).to_have_count(3)
-        self.expect(cards.nth(0)).to_contain_text("6 of 7 open", timeout=15000)
-        self.expect(cards.nth(1)).to_contain_text("0 of 4 open")
+        configured_one = len(self.cameras["camera_1"]["config"]["spaces"])
+        configured_two = len(self.cameras["camera_2"]["config"]["spaces"])
+        self.expect(cards.nth(0)).to_contain_text(
+            f"{configured_one - 1} of {configured_one} open", timeout=15000
+        )
+        self.expect(cards.nth(1)).to_contain_text(f"0 of {configured_two} open")
         self.expect(cards.nth(1)).to_contain_text("FULL")
         self.expect(cards.nth(2)).to_contain_text("COMING SOON")
         self.expect(cards.nth(2)).to_be_disabled()
@@ -211,7 +214,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
 
         cards.nth(0).click()
         self.expect(page).to_have_url(re.compile(r"/parking-lot1$"))
-        self.expect(page.locator(".dashboard-space")).to_have_count(7)
+        self.expect(page.locator(".dashboard-space")).to_have_count(configured_one)
         self.expect(page.locator(".dashboard-space.occupied")).to_have_count(1)
         self.expect(page.get_by_text("Outside marked spaces")).to_be_visible()
         self.expect(page.locator(".dashboard-space.occupied .dashboard-space-status")).to_have_text(
@@ -228,7 +231,9 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
 
         page.get_by_role("button", name=re.compile("All lots")).click()
         self.expect(page).to_have_url(re.compile(r"/$"))
-        self.expect(cards.nth(0)).to_contain_text("6 of 7 open")
+        self.expect(cards.nth(0)).to_contain_text(
+            f"{configured_one - 1} of {configured_one} open"
+        )
 
         invalidate_camera_status("camera_1", self.live, self.lock)
         self.expect(cards.nth(0)).to_contain_text(
@@ -246,7 +251,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         )
         self.restore_live_status()
         self.expect(page.locator(".dashboard-space")).to_have_count(
-            7, timeout=12000
+            configured_one, timeout=12000
         )
         self.expect(page.get_by_role("alert")).to_have_count(0)
 
@@ -256,16 +261,22 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
             392,  # permit fractional pixel rounding on a narrow viewport
         )
 
-    def test_history_without_database_does_not_invent_trends(self):
-        # The production router must return 503 when persistence is
-        # unconfigured, and React must show an error instead of 0%.
-        from backend.status_api import create_status_app
-        from fastapi.testclient import TestClient
-
-        app = create_status_app(self.cameras, self.live, self.lock, None)
-        client = TestClient(app)
-        self.assertEqual(client.get("/api/trends/lot1").status_code, 503)
-        self.assertEqual(client.get("/api/history/lot1/1").status_code, 503)
+    def test_browser_does_not_invent_trends_during_storage_outage(self):
+        # Test-only history provider raises like failed PostgreSQL; the
+        # actual FastAPI error handler must return a sanitized HTTP 503.
+        self.history.unavailable = True
+        self.addCleanup(setattr, self.history, "unavailable", False)
+        page = self.browser.new_page()
+        self.addCleanup(page.close)
+        page.goto(self.base_url + "/history/lot1", wait_until="domcontentloaded")
+        self.expect(page.get_by_role("alert")).to_contain_text(
+            "Historical records are unavailable", timeout=12000
+        )
+        self.expect(page.locator(".history-bar")).to_have_count(0)
+        self.assertEqual(
+            page.request.get(self.base_url + "/api/trends/lot1").status,
+            503,
+        )
 
 
 if __name__ == "__main__":

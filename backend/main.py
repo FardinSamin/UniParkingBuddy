@@ -3,7 +3,7 @@ from ultralytics import YOLO
 from pathlib import Path
 import numpy as np
 import threading
-from status_api import create_status_app
+from status_api import create_status_app, invalidate_camera_status
 from space_matching import assign_detections_to_spaces, build_space_statuses
 from parking_config import (
     ParkingConfigError, add_space, load_config, remove_space, save_config,
@@ -109,8 +109,7 @@ while True:
             # A failed/ended video read is not a new, valid occupancy result.
             # Remove the last state immediately so clients see UNAVAILABLE
             # rather than stale open/occupied counts.
-            with status_lock:
-                latest_status.pop(name, None)
+            invalidate_camera_status(name, latest_status, status_lock)
             cap["last_boxes"].clear()
             cap["source"].set(cv2.CAP_PROP_POS_FRAMES, 0)
             cap["frame_idx"] = 0
@@ -225,8 +224,7 @@ while True:
                 removed["source"].release()
                 cv2.destroyWindow(cam_name)
 
-                with status_lock:
-                    latest_status.pop(cam_name, None)
+                invalidate_camera_status(cam_name, latest_status, status_lock)
 
     if not camera_captures:
         break

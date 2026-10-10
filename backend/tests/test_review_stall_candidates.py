@@ -121,7 +121,7 @@ class StallQualityGateTests(unittest.TestCase):
             assess_geometry(self.scene, phase1([], source="different"))
 
     def test_malformed_car_box_and_geometry_fail_closed(self):
-        with self.assertRaisesRegex(ValueError, "Malformed Phase 1 proxy"):
+        with self.assertRaisesRegex(ValueError, "Phase 1 proxy vehicle box"):
             assess_geometry(
                 self.scene, phase1([vehicle("P001", [80, 120], [40, 50, 40, 80])])
             )

@@ -130,6 +130,7 @@ jobs:
     timeout-minutes: 20
     env:
       RUN_BROWSER_E2E: '1'
+      UPDATE_TIMING_REPORT: .ci-evidence/browser_update_timing.json
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -152,3 +153,11 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Verify React pages through the real FastAPI and Vite proxy
         run: python -m unittest discover -s backend/tests -p 'test_browser_react_fastapi.py' -v
+      - name: Archive controlled UI update timing measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlled-react-update-timing
+          path: .ci-evidence/browser_update_timing.json
+          if-no-files-found: warn
+          retention-days: 30

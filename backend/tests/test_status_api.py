@@ -98,5 +98,51 @@ class StatusApiTests(unittest.TestCase):
         self.assertEqual(self.status, {})
 
 
+    def test_openapi_documents_existing_read_only_contracts(self):
+        response = self.client.get("/openapi.json")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        paths = data["paths"]
+        for route in (
+            "/api/status/{camera}",
+            "/api/trends/{lot_id}",
+            "/api/history/{lot_id}/{space_id}",
+        ):
+            self.assertIn(route, paths)
+            self.assertEqual(set(paths[route]), {"get"})
+        self.assertEqual(
+            paths["/api/status/{camera}"]["get"]["responses"]["200"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/CurrentStatusResponse",
+        )
+
+    def test_cross_origin_browser_read_remains_supported(self):
+        self.status["camera_1"] = processed_status()
+        response = self.client.get(
+            "/api/status/camera_1", headers={"Origin": "http://localhost:5173"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "*")
+
+    def test_http_post_cannot_modify_public_occupancy(self):
+        self.status["camera_1"] = processed_status()
+        response = self.client.post(
+            "/api/status/camera_1", json={"parking_spaces": []}
+        )
+        self.assertEqual(response.status_code, 405)
+        self.assertEqual(self.status["camera_1"], processed_status())
+
+    def test_importing_backend_main_does_not_start_video_or_cv_windows(self):
+        # Importing the backend module must never open files, run YOLO,
+        # launch an HTTP server or block in the OpenCV display loop.
+        import importlib
+        from unittest.mock import patch
+        with patch("cv2.VideoCapture", side_effect=AssertionError("opened video")), \\
+             patch("cv2.namedWindow", side_effect=AssertionError("opened GUI")):
+            module = importlib.import_module("backend.main")
+        self.assertTrue(callable(module.main))
+        self.assertFalse(hasattr(module, "camera_captures"))
+
+
 if __name__ == "__main__":
     unittest.main()

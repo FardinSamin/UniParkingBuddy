@@ -77,7 +77,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install database test driver
-        run: python -m pip install 'psycopg[binary]>=3.2,<4'
+      - name: Install database and headless CV test dependencies
+        run: python -m pip install 'psycopg[binary]>=3.2,<4' numpy opencv-python-headless flask flask-cors
       - name: Test PostgreSQL schema and repository transactions
         run: python -m unittest discover -s backend/tests -p 'test_occupancy_repository.py' -v
+      - name: Test CV through PostgreSQL and HTTP API
+        run: python -m unittest discover -s backend/tests -p 'test_cv_db_api_integration.py' -v

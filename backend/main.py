@@ -7,7 +7,8 @@ import numpy as np
 import threading
 from status_api import create_status_app, invalidate_camera_status
 from occupancy_repository import OccupancyRepository
-from occupancy_writer import initialize_lots, persist_processed_observation
+from occupancy_writer import initialize_lots
+from status_publisher import publish_space_result
 from space_matching import assign_detections_to_spaces, build_space_statuses
 from parking_config import (
     ParkingConfigError, add_space, load_config, remove_space, save_config,
@@ -210,35 +211,24 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
             )
 
-        # Do not fill the history with repeated frames using cached YOLO boxes.
-        # In database mode, only publish a newly inferred status after its
-        # history/current-state transaction has committed successfully.
-        publish = persistence is None
-        if persistence is not None and new_inference:
-            if not space_status:
-                invalidate_camera_status(name, latest_status, status_lock)
-            else:
-                try:
-                    persist_processed_observation(
-                        persistence, name, space_status, datetime.now(timezone.utc)
-                    )
-                except Exception as error:
-                    invalidate_camera_status(name, latest_status, status_lock)
-                    print(
-                        f"{name}: occupancy persistence failed "
-                        f"({type(error).__name__}); status unavailable"
-                    )
-                else:
-                    publish = True
-
-        if publish:
-            with status_lock:
-                latest_status[name] = {
-                    "cars": len(cap["last_boxes"]),
-                    "in_space_vehicles": in_spaces,
-                    "outside_space_vehicles": outside_spaces,
-                    "spaces": space_status,
-                }
+        # Only publish a new API result once its database transaction
+        # succeeds (when PostgreSQL is enabled). The publisher is tested
+        # independently from YOLO and the OpenCV display windows.
+        try:
+            publish_space_result(
+                name, space_status, len(cap["last_boxes"]),
+                in_spaces, outside_spaces,
+                repository=persistence,
+                newly_inferred=new_inference,
+                latest_status=latest_status,
+                status_lock=status_lock,
+                observed_at=datetime.now(timezone.utc) if new_inference else None,
+            )
+        except Exception as error:
+            print(
+                f"{name}: occupancy persistence failed "
+                f"({type(error).__name__}); status unavailable"
+            )
 
         if mode == "mark":
             for pt in cap["current_points"]:

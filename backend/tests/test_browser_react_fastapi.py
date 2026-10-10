@@ -7,6 +7,9 @@ No physical camera, raw video or public write endpoint is involved.
 """
 
 from datetime import datetime, timezone
+import json
+import platform
+import statistics
 from pathlib import Path
 import os
 import re
@@ -260,6 +263,140 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
             page.evaluate("document.documentElement.scrollWidth"),
             392,  # permit fractional pixel rounding on a narrow viewport
         )
+
+    def test_record_observed_synthetic_backend_to_browser_update_times(self):
+        """Actual measured intervals on controlled FastAPI fixture/Chromium.
+
+        Timing starts immediately before publishing a synthetic server state
+        and stops once Chromium visibly renders it. It includes polling,
+        Vite proxy, FastAPI and React, but not YOLO, camera, or PostgreSQL.
+        No numerical acceptance threshold is inferred from the SRS.
+        """
+        self.restore_live_status()
+        page = self.browser.new_page(viewport={"width": 1200, "height": 800})
+        self.addCleanup(page.close)
+        page.goto(self.base_url, wait_until="domcontentloaded")
+        cards = page.locator(".lot-card")
+        total = len(self.cameras["camera_1"]["config"]["spaces"])
+        self.expect(cards.nth(0)).to_contain_text(
+            f"{total - 1} of {total} open", timeout=15000
+        )
+
+        observations = []
+
+        def publish_fixture(open_all):
+            with self.lock:
+                current = self.live["camera_1"]
+                current["spaces"] = [
+                    {"id": item["id"], "open": open_all}
+                    for item in self.cameras["camera_1"]["config"]["spaces"]
+                ]
+                current["in_space_vehicles"] = 0 if open_all else total
+                current["outside_space_vehicles"] = 0
+                current["cars"] = current["in_space_vehicles"]
+
+        def measure(view, trial, open_all):
+            # Python time.perf_counter_ns() uses the same local monotonic
+            # clock before the mutation and after browser confirmation.
+            # Thus no cross-machine/client clock synchronization is assumed.
+            started_utc = datetime.now(timezone.utc).isoformat()
+            start = time.perf_counter_ns()
+            publish_fixture(open_all)
+            if view == "home":
+                expected = f"{total if open_all else 0} of {total} open"
+                page.wait_for_function(
+                    """expected => {
+                        const el = document.querySelector(
+                          '.lot-card .lot-card-count'
+                        )
+                        return el?.textContent?.trim() === expected
+                    }""",
+                    arg=expected, polling=25, timeout=15000,
+                )
+            else:
+                expected_occupied = 0 if open_all else total
+                page.wait_for_function(
+                    """expected => {
+                        const spaces = document.querySelectorAll(
+                          '.dashboard-space'
+                        )
+                        const occupied = document.querySelectorAll(
+                          '.dashboard-space.occupied'
+                        )
+                        return spaces.length === expected.total &&
+                          occupied.length === expected.occupied
+                    }""",
+                    arg={"total": total, "occupied": expected_occupied},
+                    polling=25, timeout=15000,
+                )
+            elapsed_ms = round((time.perf_counter_ns() - start) / 1_000_000, 3)
+            observations.append({
+                "surface": view,
+                "trial": trial,
+                "published_state": "AVAILABLE" if open_all else "OCCUPIED",
+                "expected_visible_open_count": total if open_all else 0,
+                "started_utc": started_utc,
+                "observed_elapsed_ms": elapsed_ms,
+            })
+
+        # Repeat actual distinct state transitions to avoid accidentally
+        # measuring an already rendered value.
+        for i, open_all in enumerate((False, True, False), start=1):
+            measure("home", i, open_all)
+
+        cards.nth(0).click()
+        self.expect(page).to_have_url(re.compile(r"/parking-lot1$"))
+        self.expect(page.locator(".dashboard-space.occupied")).to_have_count(
+            total, timeout=12000
+        )
+        for i, open_all in enumerate((True, False, True), start=1):
+            measure("detail", i, open_all)
+
+        report = {
+            "schema_version": 1,
+            "measurement_type": "synthetic_backend_state_to_browser_display",
+            "git_sha": os.environ.get("GITHUB_SHA"),
+            "github_run_id": os.environ.get("GITHUB_RUN_ID"),
+            "observed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "environment": {
+                "platform": platform.platform(),
+                "python": platform.python_version(),
+                "browser": "Chromium",
+                "browser_version": self.browser.version,
+                "frontend": "Vite development server with /api proxy",
+                "backend": "Uvicorn/FastAPI with controlled in-memory fixtures",
+                "configured_spaces_camera_1": total,
+            },
+            "description": (
+                "Elapsed time from publishing a controlled synthetic live "
+                "backend occupancy change to the matching React DOM render. "
+                "Includes UI polling, Vite proxy and FastAPI delivery; excludes "
+                "YOLO inference, camera acquisition and PostgreSQL transactions."
+            ),
+            "srs_performance_threshold_ms": None,
+            "observations": observations,
+            "summary_by_surface": {
+                view: {
+                    "samples": len(values),
+                    "min_ms": min(values),
+                    "median_ms": round(statistics.median(values), 3),
+                    "max_ms": max(values),
+                }
+                for view in ("home", "detail")
+                for values in [[
+                    item["observed_elapsed_ms"] for item in observations
+                    if item["surface"] == view
+                ]]
+            },
+            "not_ground_truth_or_production_evidence": True,
+        }
+        print("CONTROLLED_UI_TIMING_JSON " + json.dumps(report, sort_keys=True))
+        if os.getenv("UPDATE_TIMING_REPORT"):
+            output = Path(os.environ["UPDATE_TIMING_REPORT"])
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(
+                json.dumps(report, indent=2) + "\\n", encoding="utf-8"
+            )
 
     def test_browser_does_not_invent_trends_during_storage_outage(self):
         # Test-only history provider raises like failed PostgreSQL; the

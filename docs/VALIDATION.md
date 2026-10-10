@@ -50,6 +50,22 @@ measured end-user latency. The real-video/backend CI job and browser CI
 job test complementary boundaries; they are **not** a single combined
 real-YOLO-through-Chromium run. Workstation acceptance remains required.
 
+## SRS acceptance execution record and measured UI timing
+
+The [acceptance test execution record](ACCEPTANCE_TEST_RECORD.md) maps
+approved SRS **AT-01 through AT-08** to actual test evidence and the
+remaining human/workstation steps. Pending acceptance fields are never
+silently marked passed on the strength of partial CI coverage.
+
+The Chromium integration CI job also records **real elapsed values** for
+several controlled synthetic backend-status changes becoming visible in
+React (home and detail pages). It uploads the JSON artifact named
+`controlled-react-update-timing`, including the commit, environment,
+clock method and observed milliseconds per trial. No fixed SRS latency
+threshold is asserted. These are **synthetic source → visible UI**
+measurements, distinct from the SRS-required real processed occupancy
+change → web display time, which still needs workstation observation.
+
 ## Workstation acceptance test (manual and evidence-based)
 
 Use a fresh clone/checkout of `main` after the relevant PR has been

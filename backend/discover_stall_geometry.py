@@ -129,10 +129,11 @@ def detect_marking_lines(mask, min_line_length=None):
     )
     if segments is None:
         return []
+    # OpenCV may return (N, 1, 4) or (N, 4); normalize before filtering.
     lines = [
-        tuple(int(v) for v in segment[0])
-        for segment in segments
-        if _length(segment[0]) >= line_length
+        tuple(int(v) for v in segment)
+        for segment in np.asarray(segments).reshape((-1, 4))
+        if _length(segment) >= line_length
     ]
     return _consolidate_segments(lines, tolerance=max(4, round(min(height, width) / 180)))
 

@@ -125,6 +125,8 @@ jobs:
         run: python -m unittest discover -s backend/tests -p 'test_real_video_db_api.py' -v
       - name: Test blind accuracy bundle with real YOLO predictions
         run: python -m unittest discover -s backend/tests -p 'test_accuracy_bundle_smoke.py' -v
+      - name: Test read-only recurring-location proposals on real sample video
+        run: python -m unittest discover -s backend/tests -p 'test_discovery_real_video_smoke.py' -v
 
   browser-fastapi-react:
     name: Real Chromium + Vite + FastAPI UI integration

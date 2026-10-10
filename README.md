@@ -138,6 +138,27 @@ is implied. For instructions and the second camera see
 The original center-point vehicle association remains a known limitation
 pending separate validation of improved matching.
 
+## Experimental automatic location discovery (read-only)
+
+The proposed **camera-adaptive** method is being developed separately from
+the approved, manually configured parking-space baseline. Its first stage
+groups recurring **anonymous vehicle positions** across sampled frames of
+any suitable fixed-view video; it produces **unverified vehicle-location
+hypotheses**, not verified stall boundaries or occupied/available states.
+It does **not** detect parking lines yet, alter configs or write database rows.
+
+From the repository root, to try this with the included first video:
+
+```cmd
+.venv\Scripts\python.exe -m backend.discover_space_hypotheses --video footage/stockvidsample2.mp4 --output evaluation_runs/discovery_camera1
+```
+
+Review local `hypotheses.json` and `preview.png`. Use a new output folder
+for each experiment. The preview may include people or vehicle details;
+do not publish it without appropriate permission/privacy review.
+[Experiment instructions and limitations](docs/EXPERIMENT_AUTOMATIC_DISCOVERY.md)
+and [research architecture](docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md).
+
 ## Validation and team reproduction
 
 - [Workstation demonstration and evidence checklist](docs/WORKSTATION_DEMO.md)

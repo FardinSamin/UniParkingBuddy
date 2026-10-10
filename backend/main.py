@@ -1,9 +1,13 @@
 import cv2
+import os
+from datetime import datetime, timezone
 from ultralytics import YOLO
 from pathlib import Path
 import numpy as np
 import threading
 from status_api import create_status_app, invalidate_camera_status
+from occupancy_repository import OccupancyRepository
+from occupancy_writer import initialize_lots, persist_processed_observation
 from space_matching import assign_detections_to_spaces, build_space_statuses
 from parking_config import (
     ParkingConfigError, add_space, load_config, remove_space, save_config,
@@ -41,6 +45,23 @@ except ParkingConfigError as error:
     for cam in camera_captures.values():
         cam["source"].release()
     raise SystemExit(f"Parking configuration error: {error}")
+
+# Opt-in persistence. A configured but unreachable/mismatched database
+# is a startup error, never a silent fallback to an in-memory-only service.
+persistence = None
+if os.environ.get("DATABASE_URL"):
+    try:
+        persistence = OccupancyRepository(os.environ["DATABASE_URL"])
+        initialize_lots(persistence, camera_captures)
+    except Exception as error:
+        for cam in camera_captures.values():
+            cam["source"].release()
+        raise SystemExit(
+            f"PostgreSQL initialization failed ({type(error).__name__}); "
+            "check database schema, credentials and configured space IDs"
+        ) from None
+else:
+    print("DATABASE_URL is unset: live status works, but history is not persisted")
 
 #format video display window
 for i in camera_captures:
@@ -116,7 +137,8 @@ while True:
             continue
         cap["frame"] = frame
 
-        if cap["frame_idx"] % DETECT_EVERY == 0:
+        new_inference = cap["frame_idx"] % DETECT_EVERY == 0
+        if new_inference:
             results = model(frame, classes=CARS, conf=0.20, imgsz=1280, verbose=False)[0]
             cap["last_boxes"] = []
             for box in results.boxes:
@@ -188,13 +210,35 @@ while True:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
             )
 
-        with status_lock:
-            latest_status[name] = {
-                "cars": len(cap["last_boxes"]),
-                "in_space_vehicles": in_spaces,
-                "outside_space_vehicles": outside_spaces,
-                "spaces": space_status,
-            }
+        # Do not fill the history with repeated frames using cached YOLO boxes.
+        # In database mode, only publish a newly inferred status after its
+        # history/current-state transaction has committed successfully.
+        publish = persistence is None
+        if persistence is not None and new_inference:
+            if not space_status:
+                invalidate_camera_status(name, latest_status, status_lock)
+            else:
+                try:
+                    persist_processed_observation(
+                        persistence, name, space_status, datetime.now(timezone.utc)
+                    )
+                except Exception as error:
+                    invalidate_camera_status(name, latest_status, status_lock)
+                    print(
+                        f"{name}: occupancy persistence failed "
+                        f"({type(error).__name__}); status unavailable"
+                    )
+                else:
+                    publish = True
+
+        if publish:
+            with status_lock:
+                latest_status[name] = {
+                    "cars": len(cap["last_boxes"]),
+                    "in_space_vehicles": in_spaces,
+                    "outside_space_vehicles": outside_spaces,
+                    "spaces": space_status,
+                }
 
         if mode == "mark":
             for pt in cap["current_points"]:
@@ -213,9 +257,15 @@ while True:
     if key == ord('q'):
         break
     if key == ord('m'):
-        mode = "mark" if mode == "play" else "play"
-        for c in camera_captures.values():
-            c["current_points"].clear()
+        if persistence is not None:
+            # Runtime JSON edits are not atomic with the PostgreSQL schema.
+            # Use offline configuration maintenance and explicit synchronization
+            # to avoid producing mismatched IDs or orphaning history.
+            print("Marking disabled in database mode; edit configuration offline")
+        else:
+            mode = "mark" if mode == "play" else "play"
+            for c in camera_captures.values():
+                c["current_points"].clear()
 
     for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
         if key == k:

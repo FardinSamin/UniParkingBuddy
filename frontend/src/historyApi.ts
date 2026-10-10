@@ -68,6 +68,8 @@ export async function fetchTrends(lot: string, days = 7): Promise<TrendsData> {
       typeof hour.occupied_percent !== 'number' ||
       !Number.isFinite(hour.occupied_percent) ||
       hour.occupied_percent < 0 || hour.occupied_percent > 100 ||
+      Math.abs(hour.occupied_percent -
+        (100 * hour.occupied_observations / hour.observations)) > 0.051 ||
       hourSet.has(hour.hour_utc)
     ) throw new Error('Invalid historical hourly data')
     hourSet.add(hour.hour_utc)

@@ -55,6 +55,13 @@ def validate_truth(truth):
         raise ValueError("Ground truth video checksum missing")
     if type(truth.get("frame_index")) is not int or truth["frame_index"] < 0:
         raise ValueError("Ground truth frame index must be nonnegative")
+    roi = truth.get("evaluation_roi_xyxy")
+    if (not isinstance(roi, list) or len(roi) != 4
+            or any(type(n) is not int for n in roi)):
+        raise ValueError("Ground truth requires a rectangular evaluation ROI")
+    x1, y1, x2, y2 = roi
+    if not (0 <= x1 < x2 < dimensions[0] and 0 <= y1 < y2 < dimensions[1]):
+        raise ValueError("Evaluation ROI must lie inside original video frame")
     spaces = truth.get("spaces")
     if not isinstance(spaces, list) or not spaces:
         raise ValueError("Human reviewer must mark at least one verifiable stall")
@@ -62,6 +69,8 @@ def validate_truth(truth):
         if not isinstance(space, dict) or set(space) != {"id", "points"}:
             raise ValueError("Each truth stall must have an ID and four points")
         convex_quad(space["points"], shape)
+        if not all(x1 <= x <= x2 and y1 <= y <= y2 for x, y in space["points"]):
+            raise ValueError("Every truth stall must lie completely inside its ROI")
     validate_config({
         "version": 1,
         "next_space_id": len(spaces) + 1,
@@ -99,7 +108,9 @@ class BlindLayoutAnnotation:
         self.display_height = max(1, round(self.height * display_width / self.width))
         self.spaces = []
         self.pending = []
-        self.message = "Mark four real stall corners in perimeter order. U: undo point."
+        self.evaluation_roi = [0, 0, self.width - 1, self.height - 1]
+        self.roi_select = []
+        self.message = "R: choose a small evaluation region; then mark ALL visible stalls there."
 
     def click(self, x, y):
         if y >= self.display_height:
@@ -107,12 +118,33 @@ class BlindLayoutAnnotation:
         point = display_to_source(
             x, y, self.width, self.height, self.display_width, self.display_height
         )
+        if self.roi_select == [[-1, -1]]:
+            self.roi_select = [point]
+            self.message = "Click opposite corner of evaluation ROI"
+            return
+        if self.roi_select:
+            first = self.roi_select[0]
+            left, right = sorted((first[0], point[0]))
+            top, bottom = sorted((first[1], point[1]))
+            self.roi_select = []
+            if right - left < 20 or bottom - top < 20:
+                self.message = "ROI too small; press R to select again."
+                return
+            self.evaluation_roi = [left, top, right, bottom]
+            self.message = "ROI saved in memory. Mark ALL verifiable real stalls inside it."
+            return
         next_pending = self.pending + [point]
         if len(next_pending) < 4:
             self.pending = next_pending
             self.message = f"Corner {len(self.pending)}/4; keep going around the same stall"
             return
         try:
+            if not all(
+                self.evaluation_roi[0] <= px <= self.evaluation_roi[2]
+                and self.evaluation_roi[1] <= py <= self.evaluation_roi[3]
+                for px, py in next_pending
+            ):
+                raise ParkingConfigError("Stall lies outside selected evaluation ROI")
             proposed = self.spaces + [{
                 "id": len(self.spaces) + 1, "points": next_pending,
             }]
@@ -128,8 +160,19 @@ class BlindLayoutAnnotation:
         self.pending = []
         self.message = f"Marked stall {len(self.spaces)}; mark next or press S to save"
 
+    def start_roi(self):
+        if self.pending or self.spaces:
+            self.message = "Choose ROI before marking stalls; Q exits without saving."
+        else:
+            # A sentinel first corner allows normal clicks to select the ROI.
+            self.roi_select = [[-1, -1]]
+            self.message = "Click first ROI corner, then its opposite corner"
+
     def undo(self):
-        if self.pending:
+        if self.roi_select:
+            self.roi_select = []
+            self.message = "ROI selection cancelled"
+        elif self.pending:
             self.pending.pop()
             self.message = f"Unfinished corners remaining: {len(self.pending)}"
         elif self.spaces:
@@ -139,18 +182,19 @@ class BlindLayoutAnnotation:
             self.message = "Nothing to undo"
 
     def truth(self):
-        if self.pending:
-            raise ValueError("Finish or undo unfinished corners before saving")
+        if self.pending or self.roi_select:
+            raise ValueError("Finish or undo unfinished corners/ROI before saving")
         report = {
             "format": "uniparkingbuddy-stall-layout-truth-v1",
             "source_video": str(self.video),
             "source_video_sha256": file_sha256(self.video),
             "frame_index": self.frame_index,
             "frame_size": [self.width, self.height],
+            "evaluation_roi_xyxy": self.evaluation_roi,
             "annotation_method": "human_independent_original_frame",
             "scope_note": (
-                "Only independently verifiable marked stalls in one fixed-view frame; "
-                "invisible or fully occluded stalls may be omitted. "
+                "Every clearly visible, verifiable stall inside the selected ROI "
+                "must be annotated; any ambiguous areas should be excluded from the ROI. "
                 "No algorithm proposal was displayed to the annotator."
             ),
             "spaces": self.spaces,
@@ -164,6 +208,14 @@ class BlindLayoutAnnotation:
         )
         canvas = np.zeros((self.display_height + 85, self.display_width, 3), dtype=np.uint8)
         canvas[:self.display_height] = preview
+        rx1, ry1, rx2, ry2 = self.evaluation_roi
+        r1 = source_to_display(
+            [rx1, ry1], self.width, self.height, self.display_width, self.display_height
+        )
+        r2 = source_to_display(
+            [rx2, ry2], self.width, self.height, self.display_width, self.display_height
+        )
+        cv2.rectangle(canvas, r1, r2, (255, 190, 0), 2)
         for space in self.spaces:
             points = np.array([
                 source_to_display(
@@ -192,7 +244,7 @@ class BlindLayoutAnnotation:
                 cv2.polylines(canvas, [points], False, (0, 230, 255), 2)
         for i, line in enumerate((
             f"INDEPENDENT HUMAN GROUND TRUTH | frame {self.frame_index} | stalls {len(self.spaces)}",
-            "LEFT: four corners | U: undo corner/last stall | S: save | Q: exit unsaved",
+            "R: select ROI first (2 corners) | LEFT: stall corners | U: undo | S: save | Q: quit",
             self.message[:max(12, self.display_width // 11)],
         )):
             cv2.putText(
@@ -231,6 +283,8 @@ def annotate(video_path, output, frame_index=0, width=1280):
                 return None
             if key == ord("u"):
                 session.undo()
+            if key == ord("r"):
+                session.start_roi()
             if key == ord("s"):
                 try:
                     truth = session.truth()
@@ -343,6 +397,7 @@ def score_ground_truth(truth, report):
     if report.get("source_video_sha256") != truth["source_video_sha256"]:
         raise ValueError("Proposal source video does not match independently labeled video")
     results = {}
+    roi = truth["evaluation_roi_xyxy"]
     for name, proposals in _proposed_sets(report).items():
         if not isinstance(proposals, list):
             raise ValueError("Expected candidate proposal list")
@@ -350,11 +405,21 @@ def score_ground_truth(truth, report):
             if candidate.get("review_state") != "unverified":
                 raise ValueError("Only unverified experimental candidates supported")
             convex_quad(candidate.get("suggested_quadrilateral_xy"), shape)
+        # Only fully contained proposals belong to the independently
+        # exhaustively labeled ROI. Do not penalize unknown parts of the scene.
+        eligible = [
+            p for p in proposals
+            if all(
+                roi[0] <= x <= roi[2] and roi[1] <= y <= roi[3]
+                for x, y in p["suggested_quadrilateral_xy"]
+            )
+        ]
         results[name] = {
-            "predicted_candidate_count": len(proposals),
+            "predicted_candidate_count": len(eligible),
+            "excluded_outside_roi": len(proposals) - len(eligible),
             "iou_thresholds": {
                 str(threshold): _one_to_one_scores(
-                    truth["spaces"], proposals, threshold
+                    truth["spaces"], eligible, threshold
                 )
                 for threshold in IOU_THRESHOLDS
             },
@@ -364,9 +429,11 @@ def score_ground_truth(truth, report):
         "source_video_sha256": truth["source_video_sha256"],
         "independently_labeled_stalls": len(truth["spaces"]),
         "ground_truth_frame_index": truth["frame_index"],
+        "evaluation_roi_xyxy": roi,
         "metrics": results,
         "limitations": [
-            "Manually visible/verifiable marked stalls in one fixed-view frame only.",
+            "Manually visible/verifiable marked stalls in one selected fixed-view ROI.",
+            "Every clearly visible real stall in ROI must be labeled; missing human labels bias precision.",
             "Unmarked, permanently occluded or out-of-view stalls are not evaluated.",
             "Pixel-space IoU is affected by viewpoint, annotation ambiguity and perspective.",
             "IoU thresholds are exploratory benchmark choices, not approved SRS criteria.",

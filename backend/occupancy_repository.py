@@ -184,22 +184,78 @@ class OccupancyRepository:
                     "complete": total > 0 and measured == total,
                 }
 
-    def space_history(self, lot_id, space_id):
-        """Return timestamped history for one configured space, newest first."""
+    def lot_spaces(self, lot_id):
+        """Return configured space IDs, or None when the lot does not exist."""
         lot_id = _identifier(lot_id, "lot_id")
-        space_id = _identifier(space_id, "space_id")
         with psycopg.connect(self.dsn) as conn:
             with conn.cursor() as cursor:
+                cursor.execute("SELECT 1 FROM parking_lot WHERE lot_id = %s", (lot_id,))
+                if cursor.fetchone() is None:
+                    return None
                 cursor.execute(
                     """
+                    SELECT space_id FROM parking_space
+                    WHERE lot_id = %s ORDER BY space_id
+                    """,
+                    (lot_id,),
+                )
+                return [row[0] for row in cursor.fetchall()]
+
+    def space_history(self, lot_id, space_id, limit=None):
+        """Return timestamped history newest first; optionally bounded for HTTP."""
+        lot_id = _identifier(lot_id, "lot_id")
+        space_id = _identifier(space_id, "space_id")
+        if limit is not None and (type(limit) is not int or not 1 <= limit <= 500):
+            raise ValueError("limit must be an integer from 1 through 500")
+        with psycopg.connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                statement = """
                     SELECT status, observed_at
                     FROM occupancy_record
                     WHERE lot_id = %s AND space_id = %s
                     ORDER BY observed_at DESC, record_id DESC
-                    """,
-                    (lot_id, space_id),
-                )
+                """
+                if limit is None:
+                    cursor.execute(statement, (lot_id, space_id))
+                else:
+                    cursor.execute(statement + " LIMIT %s", (lot_id, space_id, limit))
                 return [
                     {"status": status, "observed_at": time}
                     for status, time in cursor.fetchall()
+                ]
+
+    def hourly_occupancy_trends(self, lot_id, days=7):
+        """Summarize observed occupied-space samples by UTC hour.
+
+        These are observation fractions, NOT estimated minutes parked,
+        future predictions, or measurements of real campus conditions.
+        No missing hour is ever converted to 0% occupancy.
+        """
+        lot_id = _identifier(lot_id, "lot_id")
+        if type(days) is not int or not 1 <= days <= 31:
+            raise ValueError("days must be an integer from 1 through 31")
+        with psycopg.connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT EXTRACT(HOUR FROM observed_at AT TIME ZONE 'UTC')::INT,
+                           COUNT(*)::INT,
+                           (COUNT(*) FILTER (WHERE status = 'OCCUPIED'))::INT
+                    FROM occupancy_record
+                    WHERE lot_id = %s
+                      AND observed_at >= NOW() - (%s * INTERVAL '1 day')
+                      AND observed_at <= NOW()
+                    GROUP BY 1
+                    ORDER BY 1
+                    """,
+                    (lot_id, days),
+                )
+                return [
+                    {
+                        "hour_utc": hour,
+                        "observations": total,
+                        "occupied_observations": occupied,
+                        "occupied_percent": round(100 * occupied / total, 1),
+                    }
+                    for hour, total, occupied in cursor.fetchall()
                 ]

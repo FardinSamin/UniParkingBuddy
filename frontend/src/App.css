@@ -318,7 +318,7 @@ body {
   color:#1A8A4A;
 }
 
-.dashboard-space-occupied .dashboard-space-status {
+.dashboard-space.occupied .dashboard-space-status {
   color: #C0392B;
 }
 
@@ -509,4 +509,12 @@ body {
   .history-record {
     flex-wrap: wrap;
   }
+}
+
+/* Keep keyboard focus visible on cards and secondary navigation. */
+.lot-card:focus-visible,
+.dashboard-back-btn:focus-visible,
+.history-select:focus-visible {
+  outline: 3px solid #C9A84C;
+  outline-offset: 3px;
 }

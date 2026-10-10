@@ -1,22 +1,37 @@
 import cv2
 import os
 from datetime import datetime, timezone
-from ultralytics import YOLO
-from yolo_detection import (
-    VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
-    INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
-)
+import uvicorn
 from pathlib import Path
 import numpy as np
 import threading
-from status_api import create_status_app, invalidate_camera_status
-from occupancy_repository import OccupancyRepository
-from occupancy_writer import initialize_lots
-from status_publisher import publish_space_result
-from space_matching import assign_detections_to_spaces, build_space_statuses
-from parking_config import (
-    ParkingConfigError, add_space, load_config, remove_space, save_config,
-)
+
+if __package__:
+    from .yolo_detection import (
+        VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
+        INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+    )
+    from .status_api import create_status_app, invalidate_camera_status
+    from .occupancy_repository import OccupancyRepository
+    from .occupancy_writer import initialize_lots
+    from .status_publisher import publish_space_result
+    from .space_matching import assign_detections_to_spaces, build_space_statuses
+    from .parking_config import (
+        ParkingConfigError, add_space, load_config, remove_space, save_config,
+    )
+else:
+    from yolo_detection import (
+        VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
+        INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+    )
+    from status_api import create_status_app, invalidate_camera_status
+    from occupancy_repository import OccupancyRepository
+    from occupancy_writer import initialize_lots
+    from status_publisher import publish_space_result
+    from space_matching import assign_detections_to_spaces, build_space_statuses
+    from parking_config import (
+        ParkingConfigError, add_space, load_config, remove_space, save_config,
+    )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -35,244 +50,252 @@ def make_camera(path):
         "frame": None,
     }
 
-#add or remove if needed
-camera_captures = {
-    "camera_1": make_camera("footage/stockvidsample2.mp4"),
-    "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
-}
+def main():
+    # Delay heavyweight model loading, video capture and GUI setup until
+    # explicitly starting the app, not merely importing backend.main.
+    from ultralytics import YOLO
 
-# Fail clearly if a saved lot configuration is missing or invalid.
-# Never silently turn a damaged configuration into an apparently empty lot.
-try:
-    for name, cam in camera_captures.items():
-        cam["config"] = load_config(config_path(name))
-except ParkingConfigError as error:
-    for cam in camera_captures.values():
-        cam["source"].release()
-    raise SystemExit(f"Parking configuration error: {error}")
+    #add or remove if needed
+    camera_captures = {
+        "camera_1": make_camera("footage/stockvidsample2.mp4"),
+        "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
+    }
 
-# Opt-in persistence. A configured but unreachable/mismatched database
-# is a startup error, never a silent fallback to an in-memory-only service.
-persistence = None
-if os.environ.get("DATABASE_URL"):
+    # Fail clearly if a saved lot configuration is missing or invalid.
+    # Never silently turn a damaged configuration into an apparently empty lot.
     try:
-        persistence = OccupancyRepository(os.environ["DATABASE_URL"])
-        initialize_lots(persistence, camera_captures)
-    except Exception as error:
+        for name, cam in camera_captures.items():
+            cam["config"] = load_config(config_path(name))
+    except ParkingConfigError as error:
         for cam in camera_captures.values():
             cam["source"].release()
-        raise SystemExit(
-            f"PostgreSQL initialization failed ({type(error).__name__}); "
-            "check database schema, credentials and configured space IDs"
-        ) from None
-else:
-    print("DATABASE_URL is unset: live status works, but history is not persisted")
+        raise SystemExit(f"Parking configuration error: {error}")
 
-#format video display window
-for i in camera_captures:
-    cv2.namedWindow(i, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(i, 1280, 720)
+    # Opt-in persistence. A configured but unreachable/mismatched database
+    # is a startup error, never a silent fallback to an in-memory-only service.
+    persistence = None
+    if os.environ.get("DATABASE_URL"):
+        try:
+            persistence = OccupancyRepository(os.environ["DATABASE_URL"])
+            initialize_lots(persistence, camera_captures)
+        except Exception as error:
+            for cam in camera_captures.values():
+                cam["source"].release()
+            raise SystemExit(
+                f"PostgreSQL initialization failed ({type(error).__name__}); "
+                "check database schema, credentials and configured space IDs"
+            ) from None
+    else:
+        print("DATABASE_URL is unset: live status works, but history is not persisted")
 
-#yolo model
-model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
-DETECT_EVERY = INFERENCE_EVERY_FRAMES
+    #format video display window
+    for i in camera_captures:
+        cv2.namedWindow(i, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(i, 1280, 720)
 
-mode = "play"
+    #yolo model
+    model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
+    DETECT_EVERY = INFERENCE_EVERY_FRAMES
 
-def mouseClick(event, x, y, _flags, name):
-    if mode != "mark" or name not in camera_captures:
-        return
-    cam = camera_captures[name]
+    mode = "play"
 
-    if event == cv2.EVENT_LBUTTONDOWN:
-        cam["current_points"].append((x, y))
-        if len(cam["current_points"]) == 4:
-            try:
-                updated = add_space(cam["config"], cam["current_points"])
-                save_config(config_path(name), updated)
-            except (ParkingConfigError, OSError) as error:
-                print(f"{name}: unable to add parking space: {error}")
-            else:
-                cam["config"] = updated
-                print(f"{name}: added space {updated['next_space_id'] - 1}")
-            finally:
-                cam["current_points"].clear()
+    def mouseClick(event, x, y, _flags, name):
+        if mode != "mark" or name not in camera_captures:
+            return
+        cam = camera_captures[name]
 
-    elif event == cv2.EVENT_RBUTTONDOWN:
-        for space in cam["config"]["spaces"]:
-            contour = np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
-            if cv2.pointPolygonTest(contour, (float(x), float(y)), False) >= 0:
+        if event == cv2.EVENT_LBUTTONDOWN:
+            cam["current_points"].append((x, y))
+            if len(cam["current_points"]) == 4:
                 try:
-                    updated = remove_space(cam["config"], space["id"])
+                    updated = add_space(cam["config"], cam["current_points"])
                     save_config(config_path(name), updated)
                 except (ParkingConfigError, OSError) as error:
-                    print(f"{name}: unable to remove parking space: {error}")
+                    print(f"{name}: unable to add parking space: {error}")
                 else:
                     cam["config"] = updated
-                    print(f"{name}: removed space {space['id']}")
-                break
+                    print(f"{name}: added space {updated['next_space_id'] - 1}")
+                finally:
+                    cam["current_points"].clear()
 
-for name in camera_captures:
-    cv2.setMouseCallback(name, mouseClick, name)
+        elif event == cv2.EVENT_RBUTTONDOWN:
+            for space in cam["config"]["spaces"]:
+                contour = np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
+                if cv2.pointPolygonTest(contour, (float(x), float(y)), False) >= 0:
+                    try:
+                        updated = remove_space(cam["config"], space["id"])
+                        save_config(config_path(name), updated)
+                    except (ParkingConfigError, OSError) as error:
+                        print(f"{name}: unable to remove parking space: {error}")
+                    else:
+                        cam["config"] = updated
+                        print(f"{name}: removed space {space['id']}")
+                    break
+
+    for name in camera_captures:
+        cv2.setMouseCallback(name, mouseClick, name)
 
 
-latest_status = {}
-status_lock = threading.Lock()
-app = create_status_app(camera_captures, latest_status, status_lock, persistence)
+    latest_status = {}
+    status_lock = threading.Lock()
+    app = create_status_app(camera_captures, latest_status, status_lock, persistence)
 
-def run_api():
-    app.run(port=5000, debug=False, use_reloader=False)
+    def run_api():
+        uvicorn.run(app, host="127.0.0.1", port=5000, log_level="warning")
 
-threading.Thread(target=run_api, daemon=True).start()
+    threading.Thread(target=run_api, daemon=True, name="uniparkingbuddy-api").start()
 
 
-while True:
-    for name, cap in list(camera_captures.items()):
+    while True:
+        for name, cap in list(camera_captures.items()):
 
-        success, frame = cap["source"].read()
-        if not success:
-            # A failed/ended video read is not a new, valid occupancy result.
-            # Remove the last state immediately so clients see UNAVAILABLE
-            # rather than stale open/occupied counts.
-            invalidate_camera_status(name, latest_status, status_lock)
-            cap["last_boxes"].clear()
-            cap["source"].set(cv2.CAP_PROP_POS_FRAMES, 0)
-            cap["frame_idx"] = 0
-            continue
-        cap["frame"] = frame
+            success, frame = cap["source"].read()
+            if not success:
+                # A failed/ended video read is not a new, valid occupancy result.
+                # Remove the last state immediately so clients see UNAVAILABLE
+                # rather than stale open/occupied counts.
+                invalidate_camera_status(name, latest_status, status_lock)
+                cap["last_boxes"].clear()
+                cap["source"].set(cv2.CAP_PROP_POS_FRAMES, 0)
+                cap["frame_idx"] = 0
+                continue
+            cap["frame"] = frame
 
-        new_inference = cap["frame_idx"] % DETECT_EVERY == 0
-        if new_inference:
-            results = model(
-                frame, classes=list(VEHICLE_CLASS_IDS),
-                conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
-                verbose=False,
-            )[0]
-            cap["last_boxes"] = boxes_from_yolo_result(results)
-        cap["frame_idx"] += 1
+            new_inference = cap["frame_idx"] % DETECT_EVERY == 0
+            if new_inference:
+                results = model(
+                    frame, classes=list(VEHICLE_CLASS_IDS),
+                    conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
+                    verbose=False,
+                )[0]
+                cap["last_boxes"] = boxes_from_yolo_result(results)
+            cap["frame_idx"] += 1
 
-        display = cap["frame"].copy()
+            display = cap["frame"].copy()
 
-        # Use one spatial association result for both the occupancy counts
-        # and the visual markers. A vehicle matches at most one space.
-        contours = [
-            np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
-            for space in cap["config"]["spaces"]
-        ]
-        matched_spaces, occupied_spaces = assign_detections_to_spaces(
-            cap["last_boxes"], contours
-        )
-
-        # Detected vehicles outside the marked spaces remain visible,
-        # but do not change occupied-space counts.
-        in_spaces = sum(index is not None for index in matched_spaces)
-        outside_spaces = len(matched_spaces) - in_spaces
-
-        for (x1, y1, x2, y2, conf), space_index in zip(
-            cap["last_boxes"], matched_spaces
-        ):
-            if space_index is None:
-                color = (0, 255, 255)  # yellow: outside marked spaces (BGR)
-                label = f"OUTSIDE SPACE {conf:.2f}"
-            else:
-                color = (0, 0, 255)  # red: matched to a space (BGR)
-                label = f"SPACE {cap['config']['spaces'][space_index]['id']} {conf:.2f}"
-
-            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-            cv2.rectangle(display, (x1, y1), (x2, y2), color, 2)
-            cv2.circle(display, (cx, cy), 5, color, -1)
-            cv2.putText(
-                display, label, (max(0, x1), max(18, y1 - 6)),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+            # Use one spatial association result for both the occupancy counts
+            # and the visual markers. A vehicle matches at most one space.
+            contours = [
+                np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
+                for space in cap["config"]["spaces"]
+            ]
+            matched_spaces, occupied_spaces = assign_detections_to_spaces(
+                cap["last_boxes"], contours
             )
 
-        cv2.putText(
-            display, f"Vehicles Detected: {len(cap['last_boxes'])}", (10, 32),
-            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
-        )
-        cv2.putText(
-            display, f"In spaces: {in_spaces} | Outside spaces: {outside_spaces}",
-            (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
-        )
+            # Detected vehicles outside the marked spaces remain visible,
+            # but do not change occupied-space counts.
+            in_spaces = sum(index is not None for index in matched_spaces)
+            outside_spaces = len(matched_spaces) - in_spaces
 
-        space_status = build_space_statuses(
-            cap["config"]["spaces"], occupied_spaces
-        )
-        for i, contour in enumerate(contours):
-            occupied = occupied_spaces[i]
-            space_id = cap["config"]["spaces"][i]["id"]
+            for (x1, y1, x2, y2, conf), space_index in zip(
+                cap["last_boxes"], matched_spaces
+            ):
+                if space_index is None:
+                    color = (0, 255, 255)  # yellow: outside marked spaces (BGR)
+                    label = f"OUTSIDE SPACE {conf:.2f}"
+                else:
+                    color = (0, 0, 255)  # red: matched to a space (BGR)
+                    label = f"SPACE {cap['config']['spaces'][space_index]['id']} {conf:.2f}"
+
+                cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                cv2.rectangle(display, (x1, y1), (x2, y2), color, 2)
+                cv2.circle(display, (cx, cy), 5, color, -1)
+                cv2.putText(
+                    display, label, (max(0, x1), max(18, y1 - 6)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+                )
+
+            cv2.putText(
+                display, f"Vehicles Detected: {len(cap['last_boxes'])}", (10, 32),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
+            )
+            cv2.putText(
+                display, f"In spaces: {in_spaces} | Outside spaces: {outside_spaces}",
+                (10, 103), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2
+            )
+
+            space_status = build_space_statuses(
+                cap["config"]["spaces"], occupied_spaces
+            )
+            for i, contour in enumerate(contours):
+                occupied = occupied_spaces[i]
+                space_id = cap["config"]["spaces"][i]["id"]
+
+                if mode == "mark":
+                    color = (255, 0, 0)  # blue while marking (BGR)
+                else:
+                    color = (0, 0, 255) if occupied else (0, 255, 0)
+
+                cv2.polylines(display, [contour], True, color, 2)
+                lx = int(np.mean(contour[:, 0, 0]))
+                ly = int(np.mean(contour[:, 0, 1]))
+                cv2.putText(
+                    display, str(space_id), (lx, ly),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
+                )
+
+            # Only publish a new API result once its database transaction
+            # succeeds (when PostgreSQL is enabled). The publisher is tested
+            # independently from YOLO and the OpenCV display windows.
+            try:
+                publish_space_result(
+                    name, space_status, len(cap["last_boxes"]),
+                    in_spaces, outside_spaces,
+                    repository=persistence,
+                    newly_inferred=new_inference,
+                    latest_status=latest_status,
+                    status_lock=status_lock,
+                    observed_at=datetime.now(timezone.utc) if new_inference else None,
+                )
+            except Exception as error:
+                print(
+                    f"{name}: occupancy persistence failed "
+                    f"({type(error).__name__}); status unavailable"
+                )
 
             if mode == "mark":
-                color = (255, 0, 0)  # blue while marking (BGR)
+                for pt in cap["current_points"]:
+                    cv2.circle(display, pt, 3, (0, 255, 255), -1)
+                if len(cap["current_points"]) > 1:
+                    cv2.polylines(display, [np.array(cap["current_points"], dtype=np.int32)],
+                                  False, (0, 255, 255), 2)
+
+            cv2.putText(display, f"Mode: {mode} (press 'm' to toggle)", (10, 65),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+
+            cv2.imshow(name, display)
+
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord('q'):
+            break
+        if key == ord('m'):
+            if persistence is not None:
+                # Runtime JSON edits are not atomic with the PostgreSQL schema.
+                # Use offline configuration maintenance and explicit synchronization
+                # to avoid producing mismatched IDs or orphaning history.
+                print("Marking disabled in database mode; edit configuration offline")
             else:
-                color = (0, 0, 255) if occupied else (0, 255, 0)
+                mode = "mark" if mode == "play" else "play"
+                for c in camera_captures.values():
+                    c["current_points"].clear()
 
-            cv2.polylines(display, [contour], True, color, 2)
-            lx = int(np.mean(contour[:, 0, 0]))
-            ly = int(np.mean(contour[:, 0, 1]))
-            cv2.putText(
-                display, str(space_id), (lx, ly),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
-            )
+        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
+            if key == k:
+                removed = camera_captures.pop(cam_name, None)
+                if removed is not None:
+                    removed["source"].release()
+                    cv2.destroyWindow(cam_name)
 
-        # Only publish a new API result once its database transaction
-        # succeeds (when PostgreSQL is enabled). The publisher is tested
-        # independently from YOLO and the OpenCV display windows.
-        try:
-            publish_space_result(
-                name, space_status, len(cap["last_boxes"]),
-                in_spaces, outside_spaces,
-                repository=persistence,
-                newly_inferred=new_inference,
-                latest_status=latest_status,
-                status_lock=status_lock,
-                observed_at=datetime.now(timezone.utc) if new_inference else None,
-            )
-        except Exception as error:
-            print(
-                f"{name}: occupancy persistence failed "
-                f"({type(error).__name__}); status unavailable"
-            )
+                    invalidate_camera_status(cam_name, latest_status, status_lock)
 
-        if mode == "mark":
-            for pt in cap["current_points"]:
-                cv2.circle(display, pt, 3, (0, 255, 255), -1)
-            if len(cap["current_points"]) > 1:
-                cv2.polylines(display, [np.array(cap["current_points"], dtype=np.int32)],
-                              False, (0, 255, 255), 2)
+        if not camera_captures:
+            break
 
-        cv2.putText(display, f"Mode: {mode} (press 'm' to toggle)", (10, 65),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+    for c in camera_captures.values():
+        c["source"].release()
+    cv2.destroyAllWindows()
 
-        cv2.imshow(name, display)
-
-    key = cv2.waitKey(1) & 0xFF
-
-    if key == ord('q'):
-        break
-    if key == ord('m'):
-        if persistence is not None:
-            # Runtime JSON edits are not atomic with the PostgreSQL schema.
-            # Use offline configuration maintenance and explicit synchronization
-            # to avoid producing mismatched IDs or orphaning history.
-            print("Marking disabled in database mode; edit configuration offline")
-        else:
-            mode = "mark" if mode == "play" else "play"
-            for c in camera_captures.values():
-                c["current_points"].clear()
-
-    for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
-        if key == k:
-            removed = camera_captures.pop(cam_name, None)
-            if removed is not None:
-                removed["source"].release()
-                cv2.destroyWindow(cam_name)
-
-                invalidate_camera_status(cam_name, latest_status, status_lock)
-
-    if not camera_captures:
-        break
-
-for c in camera_captures.values():
-    c["source"].release()
-cv2.destroyAllWindows()
+if __name__ == '__main__':
+    main()

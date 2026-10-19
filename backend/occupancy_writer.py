@@ -13,6 +13,7 @@ else:
 CAMERA_LOTS = {
     "camera_1": ("lot1", "Lot 1"),
     "camera_2": ("lot2", "Lot 2"),
+    "camera_3": ("lot3", "Lot 3"),
 }
 
 

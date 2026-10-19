@@ -59,6 +59,7 @@ def main():
     camera_captures = {
         "camera_1": make_camera("footage/stockvidsample2.mp4"),
         "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
+        "camera_3": make_camera("footage/parkinglot3.mp4"),
     }
 
     # Fail clearly if a saved lot configuration is missing or invalid.
@@ -281,7 +282,7 @@ def main():
                 for c in camera_captures.values():
                     c["current_points"].clear()
 
-        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
+        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2"), (ord('3'), "camera_3")):
             if key == k:
                 removed = camera_captures.pop(cam_name, None)
                 if removed is not None:

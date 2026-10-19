@@ -8,7 +8,7 @@ The existing prototype successfully runs YOLO/OpenCV on two prerecorded videos, 
 
 **Important distinction:** An unassigned detection is outside **the configured set**, not necessarily outside the parking lot. PR #29 corrected the display label and added a safe manual calibration editor. This does not fix discovery or space matching.
 
-## Design direction agreed with the project lead
+## Design direction agreed As the project lead
 
 Move toward a **hybrid, fixed-camera, transferable video pipeline**:
 

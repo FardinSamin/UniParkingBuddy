@@ -19,7 +19,8 @@ The committed example setup uses **three monitored lots**:
 
 Detection settings are per camera (`backend/yolo_detection.py`): Lot 1 uses
 `yolo26m.pt` with overlap matching and occupancy debouncing, Lot 2 uses
-`yolo26n.pt` with the box-centre rule, and Lot 3 uses the aerial model.
+`yolo26m.pt` at 1920 px (slower, finds the small edge cars) with the same
+matching, and Lot 3 uses the aerial model with the box-centre rule.
 `PARKING_MATCHING=center|overlap` overrides the matching rule for every camera.
 
 The system does not automatically discover parking stalls,

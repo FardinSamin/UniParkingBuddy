@@ -41,6 +41,14 @@ DETECTOR_SETTINGS = {
         "classes": list(VEHICLE_CLASS_IDS), "oriented": False,
         "matching": "overlap",
     },
+    # Camera 2 is a wide-angle view with small, angled cars along the edges.
+    # yolo26m at 1280 found 45 cars on frame 0, at 1920 it finds 56 and boxes
+    # every car on the right-hand edge that 1280 missed.
+    "camera_2": {
+        "weights": "yolo26m.pt", "imgsz": 1920,
+        "classes": list(VEHICLE_CLASS_IDS), "oriented": False,
+        "matching": "overlap",
+    },
     "camera_3": {
         "weights": "yolo26n-obb.pt", "imgsz": AERIAL_IMAGE_SIZE,
         "classes": None, "oriented": True,

@@ -65,7 +65,9 @@ class DedupeTests(unittest.TestCase):
         settings = detector_settings("camera_1")
         self.assertEqual(settings["weights"], "yolo26m.pt")
         self.assertEqual(settings["matching"], "overlap")
-        self.assertEqual(detector_settings("camera_2")["matching"], "center")
+        camera_2 = detector_settings("camera_2")
+        self.assertEqual((camera_2["weights"], camera_2["imgsz"], camera_2["matching"]),
+                         ("yolo26m.pt", 1920, "overlap"))
 
 
 if __name__ == "__main__":

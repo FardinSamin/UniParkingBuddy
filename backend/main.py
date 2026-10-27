@@ -15,7 +15,9 @@ if __package__:
     from .occupancy_repository import OccupancyRepository
     from .occupancy_writer import initialize_lots
     from .status_publisher import publish_space_result
-    from .space_matching import assign_detections_to_spaces, build_space_statuses
+    from .space_matching import (
+        MATCHING_MODES, OccupancySmoother, build_space_statuses, match_detections,
+    )
     from .parking_config import (
         ParkingConfigError, add_space, load_config, remove_space, save_config,
     )
@@ -28,7 +30,9 @@ else:
     from occupancy_repository import OccupancyRepository
     from occupancy_writer import initialize_lots
     from status_publisher import publish_space_result
-    from space_matching import assign_detections_to_spaces, build_space_statuses
+    from space_matching import (
+        MATCHING_MODES, OccupancySmoother, build_space_statuses, match_detections,
+    )
     from parking_config import (
         ParkingConfigError, add_space, load_config, remove_space, save_config,
     )
@@ -136,6 +140,15 @@ def main():
         cv2.setMouseCallback(name, mouseClick, name)
 
 
+    # Opt-in: PARKING_MATCHING=overlap uses overlap matching plus debouncing.
+    # The default stays the original box-centre rule until it has been scored
+    # against human labels.
+    matching_mode = os.environ.get("PARKING_MATCHING", "center")
+    if matching_mode not in MATCHING_MODES:
+        raise SystemExit(
+            f"PARKING_MATCHING must be one of {MATCHING_MODES}, got {matching_mode!r}"
+        )
+
     latest_status = {}
     status_lock = threading.Lock()
     app = create_status_app(camera_captures, latest_status, status_lock, persistence)
@@ -179,9 +192,18 @@ def main():
                 np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
                 for space in cap["config"]["spaces"]
             ]
-            matched_spaces, occupied_spaces = assign_detections_to_spaces(
-                cap["last_boxes"], contours
+            matched_spaces, occupied_spaces = match_detections(
+                cap["last_boxes"], contours, camera=name, mode=matching_mode
             )
+            if matching_mode == "overlap":
+                # Debounce only when a new detection pass arrives; frames in
+                # between reuse the last boxes and must not count as evidence.
+                smoother = cap.get("smoother")
+                if smoother is None or len(smoother.state) != len(contours):
+                    smoother = cap["smoother"] = OccupancySmoother(len(contours))
+                if new_inference or not smoother.started:
+                    smoother.update(occupied_spaces)
+                occupied_spaces = list(smoother.state)
 
             # Unassigned detections may still be parked in unconfigured stalls;
             # they never change the occupancy of configured spaces.

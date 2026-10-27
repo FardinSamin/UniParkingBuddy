@@ -43,7 +43,7 @@ class ConfiguredLotsApiTests(unittest.TestCase):
         self.assertFalse(lots[0]["has_current_data"])
         self.assertIsNone(lots[0]["available_spaces"])
         self.assertIsNone(lots[0]["occupied_spaces"])
-        self.assertNotIn("lot3", str(lots))
+        self.assertNotIn("lot3", str(lots))  # only configured cameras are listed
 
     def test_configured_space_list_is_available_before_first_cv_result(self):
         response = self.client.get("/api/lots/lot1/spaces")
@@ -100,7 +100,7 @@ class ConfiguredLotsApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/lots/lot1/spaces").status_code, 404)
 
     def test_unknown_lot_has_explicit_404(self):
-        response = self.client.get("/api/lots/lot3/spaces")
+        response = self.client.get("/api/lots/lot99/spaces")
         self.assertEqual(response.status_code, 404)
         self.assertIn("error", response.json())
 

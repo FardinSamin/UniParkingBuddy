@@ -30,6 +30,8 @@ def main(argv=None):
 
     predict = subparsers.add_parser("predict", help="Run current YOLO model on prepared samples")
     predict.add_argument("--output", type=Path, required=True)
+    predict.add_argument("--matching", choices=("center", "overlap"), default="center",
+                         help="Vehicle-to-space rule (default: the original box-centre rule)")
 
     report = subparsers.add_parser("report", help="Score completed human labels against YOLO")
     report.add_argument("--output", type=Path, required=True)
@@ -46,7 +48,7 @@ def main(argv=None):
             print(f"Inspect previews in {args.output / 'frames'} and label independently.")
             print("No accuracy result exists until a reviewer fills EVERY row.")
         elif args.command == "predict":
-            count = predict_evaluation(args.output)
+            count = predict_evaluation(args.output, matching=args.matching)
             print(f"Saved {count} independent model predictions to {args.output / 'predictions.csv'}")
             print("Model predictions are not ground truth.")
         else:

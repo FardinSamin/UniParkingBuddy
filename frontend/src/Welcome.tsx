@@ -13,12 +13,12 @@ interface LotCard {
   camera?: string
 }
 
-// Existing routes are implemented for Lots 1 and 2. Lot 3 remains a
-// visibly disabled placeholder, not a fabricated monitored lot.
+// Routes exist for Lots 1-3. A card stays disabled unless the API reports
+// that lot as monitored.
 const lotCards: LotCard[] = [
   { id: 'lot1', name: 'Lot 1', gradient: 'linear-gradient(135deg, #242424, #111111)', path: '/parking-lot1', camera: 'camera_1' },
   { id: 'lot2', name: 'Lot 2', gradient: 'linear-gradient(135deg, #262626, #131313)', path: '/parking-lot2', camera: 'camera_2' },
-  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', path: '/parking-lot3' },
+  { id: 'lot3', name: 'Lot 3', gradient: 'linear-gradient(135deg, #282828, #151515)', path: '/parking-lot3', camera: 'camera_3' },
 ]
 
 type LotsState =

@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 
 from .parking_config import load_config
-from .space_matching import assign_detections_to_spaces, build_space_statuses
+from .space_matching import build_space_statuses, match_detections
 from .yolo_detection import (
     DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE, INFERENCE_EVERY_FRAMES,
     VEHICLE_CLASS_IDS, boxes_from_yolo_result,
@@ -194,7 +194,7 @@ def _validated_manifest(folder, root):
     return manifest, expected
 
 
-def predict_evaluation(folder, root=PROJECT_ROOT):
+def predict_evaluation(folder, root=PROJECT_ROOT, matching="center"):
     """Write model results separately from human labels, without overwriting."""
     folder, root = Path(folder), Path(root)
     manifest, expected = _validated_manifest(folder, root)
@@ -222,7 +222,7 @@ def predict_evaluation(folder, root=PROJECT_ROOT):
                     device="cpu", verbose=False,
                 )[0]
                 boxes = boxes_from_yolo_result(result)
-                _, occupied = assign_detections_to_spaces(boxes, contours)
+                _, occupied = match_detections(boxes, contours, camera=camera, mode=matching)
                 statuses = build_space_statuses(config["spaces"], occupied)
                 for space in statuses:
                     entries.append({

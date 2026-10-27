@@ -10,12 +10,15 @@ if __package__:
     from .yolo_detection import (
         VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
         INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+        detector_settings, detect_boxes,
     )
     from .status_api import create_status_app, invalidate_camera_status
     from .occupancy_repository import OccupancyRepository
     from .occupancy_writer import initialize_lots
     from .status_publisher import publish_space_result
-    from .space_matching import assign_detections_to_spaces, build_space_statuses
+    from .space_matching import (
+        MATCHING_MODES, OccupancySmoother, build_space_statuses, match_detections,
+    )
     from .parking_config import (
         ParkingConfigError, add_space, load_config, remove_space, save_config,
     )
@@ -23,12 +26,15 @@ else:
     from yolo_detection import (
         VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
         INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+        detector_settings, detect_boxes,
     )
     from status_api import create_status_app, invalidate_camera_status
     from occupancy_repository import OccupancyRepository
     from occupancy_writer import initialize_lots
     from status_publisher import publish_space_result
-    from space_matching import assign_detections_to_spaces, build_space_statuses
+    from space_matching import (
+        MATCHING_MODES, OccupancySmoother, build_space_statuses, match_detections,
+    )
     from parking_config import (
         ParkingConfigError, add_space, load_config, remove_space, save_config,
     )
@@ -59,6 +65,7 @@ def main():
     camera_captures = {
         "camera_1": make_camera("footage/stockvidsample2.mp4"),
         "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
+        "camera_3": make_camera("footage/parkinglot3.mp4"),
     }
 
     # Fail clearly if a saved lot configuration is missing or invalid.
@@ -94,7 +101,12 @@ def main():
         cv2.resizeWindow(i, 1280, 720)
 
     #yolo model
-    model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
+    # One model per distinct weights file (camera 3 uses an aerial model).
+    models = {}
+    for cam_name in camera_captures:
+        weights = detector_settings(cam_name)["weights"]
+        if weights not in models:
+            models[weights] = YOLO(str(PROJECT_ROOT / weights))
     DETECT_EVERY = INFERENCE_EVERY_FRAMES
 
     mode = "play"
@@ -136,6 +148,14 @@ def main():
         cv2.setMouseCallback(name, mouseClick, name)
 
 
+    # Matching defaults per camera (see yolo_detection.DETECTOR_SETTINGS).
+    # PARKING_MATCHING=center|overlap overrides every camera, for comparisons.
+    matching_override = os.environ.get("PARKING_MATCHING")
+    if matching_override is not None and matching_override not in MATCHING_MODES:
+        raise SystemExit(
+            f"PARKING_MATCHING must be one of {MATCHING_MODES}, got {matching_override!r}"
+        )
+
     latest_status = {}
     status_lock = threading.Lock()
     app = create_status_app(camera_captures, latest_status, status_lock, persistence)
@@ -163,12 +183,9 @@ def main():
 
             new_inference = cap["frame_idx"] % DETECT_EVERY == 0
             if new_inference:
-                results = model(
-                    frame, classes=list(VEHICLE_CLASS_IDS),
-                    conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
-                    verbose=False,
-                )[0]
-                cap["last_boxes"] = boxes_from_yolo_result(results)
+                cap["last_boxes"] = detect_boxes(
+                    models[detector_settings(name)["weights"]], frame, name
+                )
             cap["frame_idx"] += 1
 
             display = cap["frame"].copy()
@@ -179,9 +196,19 @@ def main():
                 np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
                 for space in cap["config"]["spaces"]
             ]
-            matched_spaces, occupied_spaces = assign_detections_to_spaces(
-                cap["last_boxes"], contours
+            matching_mode = matching_override or detector_settings(name)["matching"]
+            matched_spaces, occupied_spaces = match_detections(
+                cap["last_boxes"], contours, camera=name, mode=matching_mode
             )
+            if matching_mode == "overlap":
+                # Debounce only when a new detection pass arrives; frames in
+                # between reuse the last boxes and must not count as evidence.
+                smoother = cap.get("smoother")
+                if smoother is None or len(smoother.state) != len(contours):
+                    smoother = cap["smoother"] = OccupancySmoother(len(contours))
+                if new_inference or not smoother.started:
+                    smoother.update(occupied_spaces)
+                occupied_spaces = list(smoother.state)
 
             # Unassigned detections may still be parked in unconfigured stalls;
             # they never change the occupancy of configured spaces.
@@ -281,7 +308,7 @@ def main():
                 for c in camera_captures.values():
                     c["current_points"].clear()
 
-        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
+        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2"), (ord('3'), "camera_3")):
             if key == k:
                 removed = camera_captures.pop(cam_name, None)
                 if removed is not None:

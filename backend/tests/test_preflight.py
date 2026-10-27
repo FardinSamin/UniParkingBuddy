@@ -55,7 +55,7 @@ class WorkstationPreflightTests(unittest.TestCase):
             "frontend/package.json", "frontend/package-lock.json",
             "footage/stockvidsample2.mp4",
             "footage/parkinglotfootage1_1.mp4",
-            "footage/parkinglot3.mp4", "yolo26n-obb.pt", "yolo26m.pt",
+            "footage/parkinglot3.mp4", "yolo26m-obb.pt", "yolo26m.pt",
         ):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)

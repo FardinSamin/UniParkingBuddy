@@ -14,13 +14,13 @@ The committed example setup uses **three monitored lots**:
 - Lot 1: `camera_1` → `footage/stockvidsample2.mp4`
 - Lot 2: `camera_2` → `footage/parkinglotfootage1_1.mp4`
 - Lot 3: `camera_3` → `footage/parkinglot3.mp4` (straight-down aerial view;
-  uses the aerial `yolo26n-obb.pt` model because COCO weights detect no
+  uses the aerial `yolo26m-obb.pt` model because COCO weights detect no
   vehicles from above)
 
 Detection settings are per camera (`backend/yolo_detection.py`): Lot 1 uses
 `yolo26m.pt` with overlap matching and occupancy debouncing, Lot 2 uses
 `yolo26m.pt` at 1920 px (slower, finds the small edge cars) with the same
-matching, and Lot 3 uses the aerial model with the box-centre rule.
+matching, and Lot 3 uses the aerial `yolo26m-obb.pt` model at confidence 0.08 with the box-centre rule.
 `PARKING_MATCHING=center|overlap` overrides the matching rule for every camera.
 
 The system does not automatically discover parking stalls,

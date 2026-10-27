@@ -40,6 +40,11 @@ class ObbBoxTests(unittest.TestCase):
             self.assertFalse(detector_settings(camera)["oriented"])
             self.assertEqual(detector_settings(camera)["classes"], [2, 3, 7])
 
+    def test_camera_3_uses_medium_aerial_model_with_low_confidence(self):
+        settings = detector_settings("camera_3")
+        self.assertEqual(settings["weights"], "yolo26m-obb.pt")
+        self.assertEqual(settings["conf"], 0.08)
+
     def test_detect_boxes_does_not_filter_by_coco_ids_for_camera_3(self):
         seen = {}
 
@@ -50,6 +55,7 @@ class ObbBoxTests(unittest.TestCase):
         self.assertEqual(detect_boxes(model, object(), "camera_3"),
                          [(1, 2, 3, 4, 0.7)])
         self.assertNotIn("classes", seen)
+        self.assertEqual(seen["conf"], 0.08)
 
 
 class DedupeTests(unittest.TestCase):

@@ -50,8 +50,11 @@ DETECTOR_SETTINGS = {
         "matching": "overlap",
     },
     "camera_3": {
-        "weights": "yolo26n-obb.pt", "imgsz": AERIAL_IMAGE_SIZE,
-        "classes": None, "oriented": True,
+        # Aerial cars are small and low-contrast. The nano model missed dark
+        # cars even at low confidence; the medium model at 0.08 found 57 of 57
+        # on frame 0 and 52 of ~54 on the last frame (about 1.2 s on 2 CPUs).
+        "weights": "yolo26m-obb.pt", "imgsz": AERIAL_IMAGE_SIZE,
+        "classes": None, "oriented": True, "conf": 0.08,
         "matching": "center",
     },
 }
@@ -105,7 +108,7 @@ def boxes_from_obb_result(result, vehicle_names=AERIAL_VEHICLE_NAMES):
 def detect_boxes(model, frame, camera):
     """Run the camera's configured detector and return anonymous boxes."""
     settings = detector_settings(camera)
-    kwargs = {"conf": DETECTION_CONFIDENCE, "imgsz": settings["imgsz"], "verbose": False}
+    kwargs = {"conf": settings.get("conf", DETECTION_CONFIDENCE), "imgsz": settings["imgsz"], "verbose": False}
     if settings["classes"] is not None:
         kwargs["classes"] = settings["classes"]
     result = model(frame, **kwargs)[0]

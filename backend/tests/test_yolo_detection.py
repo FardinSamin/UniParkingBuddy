@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from backend.yolo_detection import (
-    boxes_from_obb_result, detect_boxes, detector_settings,
+    boxes_from_obb_result, dedupe_boxes, detect_boxes, detector_settings,
 )
 
 
@@ -38,7 +38,7 @@ class ObbBoxTests(unittest.TestCase):
         self.assertTrue(detector_settings("camera_3")["oriented"])
         for camera in ("camera_1", "camera_2"):
             self.assertFalse(detector_settings(camera)["oriented"])
-            self.assertEqual(detector_settings(camera)["weights"], "yolo26n.pt")
+            self.assertEqual(detector_settings(camera)["classes"], [2, 3, 7])
 
     def test_detect_boxes_does_not_filter_by_coco_ids_for_camera_3(self):
         seen = {}
@@ -50,6 +50,22 @@ class ObbBoxTests(unittest.TestCase):
         self.assertEqual(detect_boxes(model, object(), "camera_3"),
                          [(1, 2, 3, 4, 0.7)])
         self.assertNotIn("classes", seen)
+
+
+class DedupeTests(unittest.TestCase):
+    def test_same_car_detected_twice_keeps_higher_confidence(self):
+        boxes = [(30, 462, 253, 597, 0.55), (32, 462, 254, 597, 0.80)]
+        self.assertEqual(dedupe_boxes(boxes), [(32, 462, 254, 597, 0.80)])
+
+    def test_adjacent_distinct_cars_are_both_kept(self):
+        boxes = [(0, 0, 100, 100, 0.9), (90, 0, 190, 100, 0.8)]
+        self.assertEqual(len(dedupe_boxes(boxes)), 2)
+
+    def test_camera_1_uses_larger_model_with_overlap_matching(self):
+        settings = detector_settings("camera_1")
+        self.assertEqual(settings["weights"], "yolo26m.pt")
+        self.assertEqual(settings["matching"], "overlap")
+        self.assertEqual(detector_settings("camera_2")["matching"], "center")
 
 
 if __name__ == "__main__":

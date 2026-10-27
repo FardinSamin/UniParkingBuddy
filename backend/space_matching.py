@@ -127,7 +127,7 @@ class OccupancySmoother:
 # camera_1 looks across the lot at an angle, so the lower half of a vehicle box
 # approximates its footprint. camera_2 looks almost straight down, so the whole
 # box is the footprint.
-CAMERA_FOOTPRINT_FRACTION = {"camera_1": 0.5, "camera_2": 1.0}
+CAMERA_FOOTPRINT_FRACTION = {"camera_1": 0.5, "camera_2": 1.0, "camera_3": 1.0}
 MATCHING_MODES = ("center", "overlap")
 
 

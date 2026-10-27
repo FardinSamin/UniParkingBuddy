@@ -148,13 +148,12 @@ def main():
         cv2.setMouseCallback(name, mouseClick, name)
 
 
-    # Opt-in: PARKING_MATCHING=overlap uses overlap matching plus debouncing.
-    # The default stays the original box-centre rule until it has been scored
-    # against human labels.
-    matching_mode = os.environ.get("PARKING_MATCHING", "center")
-    if matching_mode not in MATCHING_MODES:
+    # Matching defaults per camera (see yolo_detection.DETECTOR_SETTINGS).
+    # PARKING_MATCHING=center|overlap overrides every camera, for comparisons.
+    matching_override = os.environ.get("PARKING_MATCHING")
+    if matching_override is not None and matching_override not in MATCHING_MODES:
         raise SystemExit(
-            f"PARKING_MATCHING must be one of {MATCHING_MODES}, got {matching_mode!r}"
+            f"PARKING_MATCHING must be one of {MATCHING_MODES}, got {matching_override!r}"
         )
 
     latest_status = {}
@@ -197,6 +196,7 @@ def main():
                 np.array(space["points"], dtype=np.int32).reshape((-1, 1, 2))
                 for space in cap["config"]["spaces"]
             ]
+            matching_mode = matching_override or detector_settings(name)["matching"]
             matched_spaces, occupied_spaces = match_detections(
                 cap["last_boxes"], contours, camera=name, mode=matching_mode
             )

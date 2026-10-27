@@ -39,7 +39,7 @@ def check_project_files(root, capture_factory=None):
 
     findings = []
     for relative in (
-        "yolo26n.pt", "yolo26n-obb.pt", "requirements.txt", "backend/schema.sql",
+        "yolo26n.pt", "yolo26n-obb.pt", "yolo26m.pt", "requirements.txt", "backend/schema.sql",
         "frontend/package.json", "frontend/package-lock.json",
     ):
         path = root / relative

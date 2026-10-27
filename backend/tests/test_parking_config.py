@@ -40,7 +40,7 @@ class ParkingConfigTests(unittest.TestCase):
         # space 1, last corner of the last ORIGINAL space). New stalls may be
         # appended with new IDs, but the original ones must never change.
         expected = [
-            ("camera_1", 7, 31, [90, 944], [1590, 818]),
+            ("camera_1", 7, 121, [90, 944], [1590, 818]),
             ("camera_2", 4, 4, [693, 213], [846, 302]),
         ]
         for camera, original, total, first_point, last_original_point in expected:

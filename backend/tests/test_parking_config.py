@@ -41,7 +41,7 @@ class ParkingConfigTests(unittest.TestCase):
         # appended with new IDs, but the original ones must never change.
         expected = [
             ("camera_1", 7, 135, [90, 944], [1590, 818]),
-            ("camera_2", 4, 55, [693, 213], [846, 302]),
+            ("camera_2", 4, 57, [693, 213], [846, 302]),
         ]
         for camera, original, total, first_point, last_original_point in expected:
             with self.subTest(camera=camera):

@@ -55,11 +55,12 @@ class WorkstationPreflightTests(unittest.TestCase):
             "frontend/package.json", "frontend/package-lock.json",
             "footage/stockvidsample2.mp4",
             "footage/parkinglotfootage1_1.mp4",
+            "footage/parkinglot3.mp4", "yolo26n-obb.pt",
         ):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(b"fixture; no real media or model")
-        for camera in ("camera_1", "camera_2"):
+        for camera in ("camera_1", "camera_2", "camera_3"):
             path = self.root / "configs" / f"{camera}.json"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(valid_config()), encoding="utf-8")
@@ -75,7 +76,7 @@ class WorkstationPreflightTests(unittest.TestCase):
         self.assertEqual(
             [item for item in results if item.level == "FAIL"], []
         )
-        self.assertEqual(len(self.captures), 2)
+        self.assertEqual(len(self.captures), 3)
         self.assertTrue(all(c.released for c in self.captures))
         self.assertEqual(
             (self.root / "configs/camera_1.json").read_bytes(), before
@@ -130,7 +131,7 @@ class WorkstationPreflightTests(unittest.TestCase):
         results = check_project_files(self.root, opener)
         self.assertEqual(
             sum(x.level == "FAIL" and "cannot be decoded" in x.message
-                for x in results), 2
+                for x in results), 3
         )
         self.assertTrue(all(cap.released for cap in self.captures))
 

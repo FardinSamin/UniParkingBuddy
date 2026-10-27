@@ -10,6 +10,7 @@ if __package__:
     from .yolo_detection import (
         VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
         INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+        detector_settings, detect_boxes,
     )
     from .status_api import create_status_app, invalidate_camera_status
     from .occupancy_repository import OccupancyRepository
@@ -23,6 +24,7 @@ else:
     from yolo_detection import (
         VEHICLE_CLASS_IDS, DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE,
         INFERENCE_EVERY_FRAMES, boxes_from_yolo_result,
+        detector_settings, detect_boxes,
     )
     from status_api import create_status_app, invalidate_camera_status
     from occupancy_repository import OccupancyRepository
@@ -59,6 +61,7 @@ def main():
     camera_captures = {
         "camera_1": make_camera("footage/stockvidsample2.mp4"),
         "camera_2": make_camera("footage/parkinglotfootage1_1.mp4"),
+        "camera_3": make_camera("footage/parkinglot3.mp4"),
     }
 
     # Fail clearly if a saved lot configuration is missing or invalid.
@@ -94,7 +97,12 @@ def main():
         cv2.resizeWindow(i, 1280, 720)
 
     #yolo model
-    model = YOLO(str(PROJECT_ROOT / 'yolo26n.pt'))
+    # One model per distinct weights file (camera 3 uses an aerial model).
+    models = {}
+    for cam_name in camera_captures:
+        weights = detector_settings(cam_name)["weights"]
+        if weights not in models:
+            models[weights] = YOLO(str(PROJECT_ROOT / weights))
     DETECT_EVERY = INFERENCE_EVERY_FRAMES
 
     mode = "play"
@@ -163,12 +171,9 @@ def main():
 
             new_inference = cap["frame_idx"] % DETECT_EVERY == 0
             if new_inference:
-                results = model(
-                    frame, classes=list(VEHICLE_CLASS_IDS),
-                    conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
-                    verbose=False,
-                )[0]
-                cap["last_boxes"] = boxes_from_yolo_result(results)
+                cap["last_boxes"] = detect_boxes(
+                    models[detector_settings(name)["weights"]], frame, name
+                )
             cap["frame_idx"] += 1
 
             display = cap["frame"].copy()
@@ -281,7 +286,7 @@ def main():
                 for c in camera_captures.values():
                     c["current_points"].clear()
 
-        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2")):
+        for k, cam_name in ((ord('1'), "camera_1"), (ord('2'), "camera_2"), (ord('3'), "camera_3")):
             if key == k:
                 removed = camera_captures.pop(cam_name, None)
                 if removed is not None:

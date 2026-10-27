@@ -62,7 +62,7 @@ not claim the static build alone is a deployed backend.
 - `GET /api/lots` is the authoritative inventory of actively monitored
   configured lots. The existing home cards for Lots 1/2 become interactive
   only when their matching camera/lot pair is active.
-- The unsupported Lot 3 placeholder remains visible and disabled.
+- Lot 3 is enabled only while the API reports `camera_3` as monitored.
 - A monitored lot with valid current data displays actual Open/Occupied
   counts. **Recorded zero open spots** means FULL.
 - If current results have not been processed, the API has no current

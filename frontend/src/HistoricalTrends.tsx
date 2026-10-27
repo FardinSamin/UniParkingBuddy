@@ -8,8 +8,8 @@ const HOURS = Array.from({ length: 24 }, (_, index) => index)
 export default function HistoricalTrends() {
   const { lotId } = useParams<{ lotId: string }>()
   const navigate = useNavigate()
-  const validLot = lotId === 'lot1' || lotId === 'lot2'
-  const lotName = lotId === 'lot1' ? 'Lot 1' : 'Lot 2'
+  const validLot = lotId === 'lot1' || lotId === 'lot2' || lotId === 'lot3'
+  const lotName = lotId === 'lot1' ? 'Lot 1' : lotId === 'lot2' ? 'Lot 2' : 'Lot 3'
 
   const [trends, setTrends] = useState<TrendsData | null>(null)
   const [loading, setLoading] = useState(true)

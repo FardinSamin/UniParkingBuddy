@@ -42,6 +42,7 @@ class ParkingConfigTests(unittest.TestCase):
         expected = [
             ("camera_1", 7, 135, [90, 944], [1590, 818]),
             ("camera_2", 4, 57, [693, 213], [846, 302]),
+            ("camera_3", 1, 69, [139, 99], [139, 146]),
         ]
         for camera, original, total, first_point, last_original_point in expected:
             with self.subTest(camera=camera):

@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCES = {
     "camera_1": "footage/stockvidsample2.mp4",
     "camera_2": "footage/parkinglotfootage1_1.mp4",
+    "camera_3": "footage/parkinglot3.mp4",
 }
 PACKAGES = ("numpy", "ultralytics", "fastapi", "uvicorn", "psycopg")
 
@@ -38,7 +39,7 @@ def check_project_files(root, capture_factory=None):
 
     findings = []
     for relative in (
-        "yolo26n.pt", "requirements.txt", "backend/schema.sql",
+        "yolo26n.pt", "yolo26n-obb.pt", "requirements.txt", "backend/schema.sql",
         "frontend/package.json", "frontend/package-lock.json",
     ):
         path = root / relative

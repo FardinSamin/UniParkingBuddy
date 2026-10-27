@@ -10,12 +10,14 @@ read-only React + TypeScript interface. Optional PostgreSQL persistence
 records anonymous, timestamped `AVAILABLE`/`OCCUPIED` observations and
 descriptive history.
 
-The committed example setup uses **two monitored lots**:
+The committed example setup uses **three monitored lots**:
 - Lot 1: `camera_1` → `footage/stockvidsample2.mp4`
 - Lot 2: `camera_2` → `footage/parkinglotfootage1_1.mp4`
+- Lot 3: `camera_3` → `footage/parkinglot3.mp4` (straight-down aerial view;
+  uses the aerial `yolo26n-obb.pt` model because COCO weights detect no
+  vehicles from above)
 
-**Lot 3 is not monitored.** The existing placeholder card is intentionally
-disabled. The system does not automatically discover parking stalls,
+The system does not automatically discover parking stalls,
 identify people/plates/specific vehicles, reserve spaces, take payments,
 enforce parking, or predict future occupancy. Replayed video observations
 must **not** be presented as current campus traffic.
@@ -80,8 +82,7 @@ npm run dev
 
 Open `http://localhost:5173` (or the URL Vite prints). The browser
 requests `/api` through Vite's same-origin development proxy.
-The webpage should display two monitored cards and the disabled Lot 3
-placeholder. Open Lot 1/Lot 2, verify configured-space text states
+The webpage should display three monitored cards. Open Lot 1/2/3, verify configured-space text states
 and counts. **Historical trends will be unavailable** with no database.
 
 To inspect FastAPI: `http://127.0.0.1:5000/docs`,

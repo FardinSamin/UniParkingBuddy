@@ -36,19 +36,25 @@ def sample():
 
 class ParkingConfigTests(unittest.TestCase):
     def test_committed_camera_regions_preserved(self):
+        # (camera, originally committed count, current total, first corner of
+        # space 1, last corner of the last ORIGINAL space). New stalls may be
+        # appended with new IDs, but the original ones must never change.
         expected = [
-            ("camera_1", 7, [90, 944], [1590, 818]),
-            ("camera_2", 4, [693, 213], [846, 302]),
+            ("camera_1", 7, 135, [90, 944], [1590, 818]),
+            ("camera_2", 4, 4, [693, 213], [846, 302]),
         ]
-        for camera, count, first_point, last_point in expected:
+        for camera, original, total, first_point, last_original_point in expected:
             with self.subTest(camera=camera):
                 config = load_config(ROOT / "configs" / f"{camera}.json")
-                self.assertEqual(len(config["spaces"]), count)
+                self.assertEqual(len(config["spaces"]), total)
                 self.assertEqual([space["id"] for space in config["spaces"]],
-                                 list(range(1, count + 1)))
-                self.assertEqual(config["next_space_id"], count + 1)
+                                 list(range(1, total + 1)))
+                self.assertEqual(config["next_space_id"], total + 1)
                 self.assertEqual(config["spaces"][0]["points"][0], first_point)
-                self.assertEqual(config["spaces"][-1]["points"][-1], last_point)
+                self.assertEqual(
+                    config["spaces"][original - 1]["points"][-1],
+                    last_original_point,
+                )
 
     def test_removing_a_middle_space_does_not_renumber_survivors(self):
         updated = remove_space(sample(), 1)

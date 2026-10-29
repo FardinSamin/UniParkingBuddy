@@ -518,3 +518,10 @@ body {
   outline: 3px solid #C9A84C;
   outline-offset: 3px;
 }
+.lot-diagram {
+  width: 100%;
+  max-width: 1100px;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+}

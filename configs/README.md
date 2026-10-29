@@ -1,14 +1,16 @@
 # Parking-space configuration
 
-UniParkingBuddy has **two preconfigured test-video cameras**:
+UniParkingBuddy has **three preconfigured test-video cameras**:
 
 | Camera | File | Configured spaces |
 | --- | --- | --- |
-| `camera_1` | `configs/camera_1.json` | 7 |
-| `camera_2` | `configs/camera_2.json` | 4 |
+| `camera_1` | `configs/camera_1.json` | 135 |
+| `camera_2` | `configs/camera_2.json` | 57 |
+| `camera_3` | `configs/camera_3.json` | 69 |
 
-These JSON files preserve the polygons from the team's original, committed
-`CarPos_camera_1` and `CarPos_camera_2` files. The original binary files are
+Cameras 1 and 2 keep the polygons from the team's original, committed
+`CarPos_camera_1` and `CarPos_camera_2` files as IDs 1-7 and 1-4; the other
+stalls were mapped later with new IDs. Camera 3 was mapped from scratch. The original binary files are
 kept only as reference. **The application does not load or execute pickles.**
 
 ## Format

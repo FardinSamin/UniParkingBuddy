@@ -1,18 +1,36 @@
 import { buildStalls, type DiagramLayout } from './diagramLayout.ts'
 
 interface Props {
-    layout: DiagramLayout
-    statuses: { id: number; occupied: boolean } []
-
+  layout: DiagramLayout
+  statuses: { id: number; occupied: boolean }[]
 }
 
-const INSET = 3
+type Point = [number, number]
 
-function lotDiagram({ layout, statuses }: Props) {
-    const occupiedById = new Map<number, boolean>(
-        statuses.map((s): [number, boolean] => [s.id, s.occupied]),
+function centroid(points: Point[]): Point {
+  const sx = points.reduce((sum, p) => sum + p[0], 0)
+  const sy = points.reduce((sum, p) => sum + p[1], 0)
+  return [sx / points.length, sy / points.length]
+}
+
+function shrink(points: Point[], amount: number): Point[] {
+  const [cx, cy] = centroid(points)
+  return points.map(([x, y]): Point => {
+    const dx = cx - x
+    const dy = cy - y
+    const distance = Math.hypot(dx, dy) || 1
+    const k = Math.min(amount / distance, 0.4)
+    return [x + dx * k, y + dy * k]
+  })
+}
+
+function LotDiagram({ layout, statuses }: Props) {
+  const occupiedById = new Map<number, boolean>(
+    statuses.map((s): [number, boolean] => [s.id, s.occupied]),
   )
-  const fontSize = Math.round(layout.width / 56)
+  const inset = layout.width / 250
+  const strokeWidth = Math.max(1.2, layout.width / 450)
+  const fontSize = layout.labelSize ?? Math.round(layout.width / 56)
 
   return (
     <svg
@@ -32,32 +50,29 @@ function lotDiagram({ layout, statuses }: Props) {
         const known = occupied !== undefined
         const fill = !known ? 'none' : occupied ? 'rgba(192,57,43,0.6)' : 'rgba(26,138,74,0.6)'
         const stroke = !known ? '#FFFFFF' : occupied ? '#C0392B' : '#1A8A4A'
-        const w = stall.width - 2 * INSET
-        const h = stall.height - 2 * INSET
+        const inner = shrink(stall.points, inset)
+        const [cx, cy] = centroid(stall.points)
 
         return (
           <g key={stall.id}>
-            <rect
-              x={stall.x + INSET}
-              y={stall.y + INSET}
-              width={w}
-              height={h}
-              rx={5}
+            <polygon
+              points={inner.map(([x, y]) => `${x},${y}`).join(' ')}
               fill={fill}
               stroke={stroke}
-              strokeWidth={2.5}
-              strokeDasharray={known ? undefined : '8 6'}
+              strokeWidth={strokeWidth}
+              strokeLinejoin="round"
+              strokeDasharray={known ? undefined : `${strokeWidth * 3} ${strokeWidth * 2.4}`}
             />
             <text
-              x={stall.x + INSET + w / 2}
-              y={stall.y + INSET + h / 2}
+              x={cx}
+              y={cy}
               textAnchor="middle"
               dominantBaseline="central"
               fontSize={fontSize}
               fontWeight={700}
               fill="#FFFFFF"
               stroke="rgba(0,0,0,0.45)"
-              strokeWidth={3}
+              strokeWidth={fontSize / 5}
               paintOrder="stroke"
             >
               {stall.id}
@@ -69,5 +84,4 @@ function lotDiagram({ layout, statuses }: Props) {
   )
 }
 
-export default lotDiagram
-   
+export default LotDiagram

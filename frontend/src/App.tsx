@@ -5,7 +5,7 @@ import ParkingLot2 from './parkinglotroutes/parkinglot2.tsx'
 import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
 import './App.css'
-import DiagramDemo from './diagramDemo.tsx'
+
 
 function App() {
   return (
@@ -16,7 +16,6 @@ function App() {
         <Route path="/parking-lot2" element={<ParkingLot2/>} />
         <Route path="/parking-lot3" element={<ParkingLot3/>} />
         <Route path="/history/:lotId" element={<HistoricalTrends />} />
-        <Route path="/diagram-demo" element={<DiagramDemo />} />
       </Routes>
     </BrowserRouter>
   )

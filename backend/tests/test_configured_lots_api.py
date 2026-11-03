@@ -68,6 +68,20 @@ class ConfiguredLotsApiTests(unittest.TestCase):
             {"id": 2, "occupied": True},
         ])
 
+    def test_all_empty_lot_reports_every_space_available(self):
+        with self.lock:
+            self.live["camera_1"] = {
+                "spaces": [{"id": 1, "open": True}, {"id": 2, "open": True}],
+            }
+        lot = self.client.get("/api/lots").json()["lots"][0]
+        self.assertTrue(lot["has_current_data"])
+        self.assertEqual((lot["available_spaces"], lot["occupied_spaces"]), (2, 0))
+        spaces = self.client.get("/api/lots/lot1/spaces").json()["spaces"]
+        self.assertEqual(spaces, [
+            {"id": 1, "occupied": False},
+            {"id": 2, "occupied": False},
+        ])
+
     def test_true_full_lot_is_not_confused_with_unavailable(self):
         self.live["camera_1"] = {
             "spaces": [{"id": 1, "open": False}, {"id": 2, "open": False}],

@@ -40,6 +40,17 @@ class SpaceMatchingTests(unittest.TestCase):
         self.assertEqual(matches, [1])
         self.assertEqual(occupied, [False, True])
 
+    def test_vehicles_in_adjacent_spaces_occupy_both_spaces(self):
+        matches, occupied = assign_detections_to_spaces(
+            [
+                (20, 20, 60, 60, 0.9),
+                (120, 20, 160, 60, 0.8),
+            ],
+            self.spaces,
+        )
+        self.assertEqual(matches, [0, 1])
+        self.assertEqual(occupied, [True, True])
+
     def test_outside_vehicle_never_increases_occupied_count(self):
         matches, occupied = assign_detections_to_spaces(
             [(220, 20, 260, 60, 0.9)], self.spaces

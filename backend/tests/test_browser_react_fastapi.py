@@ -163,6 +163,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
     def restore_live_status(cls):
         first_config = cls.cameras["camera_1"]["config"]["spaces"]
         second_config = cls.cameras["camera_2"]["config"]["spaces"]
+        third_config = cls.cameras["camera_3"]["config"]["spaces"]
         with cls.lock:
             cls.live["camera_1"] = {
                 "cars": 2,
@@ -182,6 +183,15 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
                     for space in second_config
                 ],
             }
+            cls.live["camera_3"] = {
+                "cars": len(third_config),
+                "in_space_vehicles": len(third_config),
+                "outside_space_vehicles": 0,
+                "spaces": [
+                    {"id": space["id"], "open": False}
+                    for space in third_config
+                ],
+            }
 
     def test_browser_renders_lots_details_history_and_recovery(self):
         self.restore_live_status()
@@ -194,7 +204,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.assertEqual(response.status, 200)
         self.assertEqual(
             [lot["lot_id"] for lot in response.json()["lots"]],
-            ["lot1", "lot2"],
+            ["lot1", "lot2", "lot3"],
         )
 
         page.goto(self.base_url, wait_until="domcontentloaded")
@@ -202,13 +212,15 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(cards).to_have_count(3)
         configured_one = len(self.cameras["camera_1"]["config"]["spaces"])
         configured_two = len(self.cameras["camera_2"]["config"]["spaces"])
+        configured_three = len(self.cameras["camera_3"]["config"]["spaces"])
         self.expect(cards.nth(0)).to_contain_text(
             f"{configured_one - 1} of {configured_one} open", timeout=15000
         )
         self.expect(cards.nth(1)).to_contain_text(f"0 of {configured_two} open")
         self.expect(cards.nth(1)).to_contain_text("FULL")
-        self.expect(cards.nth(2)).to_contain_text("COMING SOON")
-        self.expect(cards.nth(2)).to_be_disabled()
+        self.expect(cards.nth(2)).to_contain_text(f"0 of {configured_three} open")
+        self.expect(cards.nth(2)).to_contain_text("FULL")
+        self.expect(cards.nth(2)).to_be_enabled()
         self.expect(cards.nth(0)).to_be_enabled()
         self.expect(page.locator(".welcome-logo")).to_be_visible()
         self.assertTrue(page.locator(".welcome-logo").evaluate(
@@ -408,8 +420,10 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(cards).to_have_count(3)
         self.expect(cards.nth(0)).to_contain_text("OPEN", timeout=15000)
         self.expect(cards.nth(1)).to_contain_text("FULL")
-        self.expect(cards.nth(2)).to_contain_text("COMING SOON")
-        self.expect(cards.nth(2)).to_be_disabled()
+        configured_three = len(self.cameras["camera_3"]["config"]["spaces"])
+        self.expect(cards.nth(2)).to_contain_text(f"0 of {configured_three} open")
+        self.expect(cards.nth(2)).to_contain_text("FULL")
+        self.expect(cards.nth(2)).to_be_enabled()
 
         # No pointer/mouse. Keyboard Tab reaches the monitored lot cards.
         page.keyboard.press("Tab")
@@ -478,7 +492,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(back_button).to_be_focused()
         page.keyboard.press("Enter")
         self.expect(page).to_have_url(re.compile(r"/$"))
-        self.expect(cards.nth(2)).to_be_disabled()
+        self.expect(cards.nth(2)).to_be_enabled()
 
     def test_browser_does_not_invent_trends_during_storage_outage(self):
         # Test-only history provider raises like failed PostgreSQL; the

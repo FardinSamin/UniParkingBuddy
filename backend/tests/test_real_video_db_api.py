@@ -127,7 +127,8 @@ class RealVideoDatabaseAPITests(unittest.TestCase):
             for lot in initial.json()["lots"]
         ))
 
-        for camera, (lot_id, label) in CAMERA_LOTS.items():
+        for camera in VIDEO_SOURCES:
+            lot_id, label = CAMERA_LOTS[camera]
             config = self.cameras[camera]["config"]
             expected_ids = [space["id"] for space in config["spaces"]]
             self.assertEqual(

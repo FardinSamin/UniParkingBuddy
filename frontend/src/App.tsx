@@ -6,6 +6,7 @@ import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
 import './App.css'
 
+
 function App() {
   return (
     <BrowserRouter>
@@ -19,5 +20,8 @@ function App() {
     </BrowserRouter>
   )
 }
+
+
+
 
 export default App

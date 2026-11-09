@@ -63,7 +63,7 @@ body {
 }
 
 .welcome-logo {
-  height: 56px;
+  height: 80px;
   width: auto;
   flex-shrink: 0;
 }
@@ -111,19 +111,75 @@ body {
   gap: 14px;
 }
 
+.welcome-sort {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: #3A3935;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.welcome-sort-select {
+  max-width: 100%;
+  padding: 9px 32px 9px 12px;
+  border: 1px solid #B5B0A7;
+  border-radius: 7px;
+  background: #FFF;
+  color: #242424;
+  font: inherit;
+  cursor: pointer;
+}
+
 .lot-card {
-  all: unset;
   display: block;
   width: 100%;
   height: 120px;
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  cursor: pointer;
   background-color: #2A2418;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+}
+
+.lot-card-open {
+  all: unset;
+  position: absolute;
+  inset: 0;
+  display: block;
+  z-index: 2;
+  cursor: pointer;
+  text-align: left;
+}
+
+.lot-card-open:disabled {
+  cursor: default;
+}
+
+/* Blurred parking lot background */
+.lot-card-bg {
+  position: absolute;
+  inset: -5px;
+
   background-size: cover;
   background-position: center;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+
+  filter: blur(3px);
+  transform: scale(1.03);
+
+  z-index: 0;
+}
+
+/* Dark transparent layer */
+.lot-card-overlay {
+  position: absolute;
+  inset: 0;
+
+  background: rgba(11, 11, 11, 0.40);
+
+  z-index: 1;
 }
 
 .lot-card-arrow {
@@ -144,7 +200,21 @@ body {
   font-weight: 700;
   padding: 4px 10px;
   border-radius: 20px;
-  z-index: 1;
+  z-index: 2;
+}
+
+.lot-card-type {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  color: #F5F1E8;
+  background: rgba(11, 11, 11, 0.72);
+  border: 1px solid rgba(201, 168, 76, 0.7);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  z-index: 2;
 }
 
 .lot-card-text {
@@ -155,6 +225,7 @@ body {
 }
 
 .lot-card-name {
+  display: block;
   color: #FFF;
   font-size: 16px;
   font-weight: 600;
@@ -162,9 +233,30 @@ body {
 }
 
 .lot-card-count {
+  display: block;
   color: #E8E8E6;
   font-size: 13px;
   margin: 0;
+}
+
+.lot-card-directions {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  z-index: 3;
+  padding: 8px 12px;
+  border: 1px solid rgba(201, 168, 76, 0.8);
+  border-radius: 7px;
+  background: rgba(11, 11, 11, 0.78);
+  color: #F5F1E8;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lot-card-directions:hover {
+  background: #C9A84C;
+  color: #0B0B0B;
 }
 
 
@@ -228,6 +320,11 @@ body {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.dashboard-directions-btn {
+  display: inline-block;
+  text-decoration: none;
 }
 
 .dashboard-body {
@@ -295,11 +392,11 @@ body {
 }
 
 .dashboard-space.occupied {
-  border-color: #C0392B ;
+  border-color: #C0392B;
   background: #FBEAEA;
 }
 
-.dashboard-space-id{
+.dashboard-space-id {
   color: #0B0B0B;
   font-size: 16px;
   font-weight: 700;
@@ -315,7 +412,7 @@ body {
 }
 
 .dashboard-space.open .dashboard-space-status {
-  color:#1A8A4A;
+  color: #1A8A4A;
 }
 
 .dashboard-space.occupied .dashboard-space-status {
@@ -512,9 +609,19 @@ body {
 }
 
 /* Keep keyboard focus visible on cards and secondary navigation. */
-.lot-card:focus-visible,
+.lot-card-open:focus-visible,
+.lot-card-directions:focus-visible,
 .dashboard-back-btn:focus-visible,
-.history-select:focus-visible {
+.history-select:focus-visible,
+.welcome-sort-select:focus-visible {
   outline: 3px solid #C9A84C;
   outline-offset: 3px;
+}
+
+.lot-diagram {
+  width: 100%;
+  max-width: 1100px;
+  height: auto;
+  display: block;
+  border-radius: 12px;
 }

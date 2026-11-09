@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import Welcome from './Welcome'
+import Welcome from './Welcome.tsx'
 import ParkingLot1 from './parkinglotroutes/parkinglot1.tsx'
 import ParkingLot2 from './parkinglotroutes/parkinglot2.tsx'
 import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
 import './App.css'
+
 
 function App() {
   return (
@@ -19,5 +20,8 @@ function App() {
     </BrowserRouter>
   )
 }
+
+
+
 
 export default App

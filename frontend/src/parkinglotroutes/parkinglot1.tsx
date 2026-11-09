@@ -2,14 +2,28 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
 import { fetchParkingStatus, type ParkingSpaceStatus } from '../parkingStatus'
+import LotDiagram from '../lotDiagram.tsx'
+import type { DiagramLayout } from '../diagramLayout.ts'
 
 function ParkingLot1() {
   const [spaces, setSpaces] = useState<ParkingSpaceStatus[]>([])
+  const [layout, setLayout] = useState<DiagramLayout | null>(null)
+  const [layoutError, setLayoutError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [carCount, setCarCount] = useState(0)
   const [outsideCount, setOutsideCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    fetch('/diagrams/lot1.json')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load layout')
+        return res.json()
+      })
+      .then((data: DiagramLayout) => setLayout(data))
+      .catch(() => setLayoutError(true))
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -30,6 +44,7 @@ function ParkingLot1() {
         })
         .catch(() => {
           if (!active) return
+          setSpaces([])
           setError('Current parking status is unavailable. Check the backend and space configuration.')
           setLoading(false)
         })
@@ -62,6 +77,14 @@ function ParkingLot1() {
             <button className="dashboard-back-btn" onClick={() => navigate('/history/lot1')}>
               Historical trends
             </button>
+            <a
+              className="dashboard-back-btn dashboard-directions-btn"
+              href="https://www.google.com/maps/dir/?api=1&destination=34.685327503109605%2C-79.19927028733267"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Directions
+            </a>
             <button className="dashboard-back-btn" onClick={() => navigate('/')}>
               ← All lots
             </button>
@@ -72,57 +95,44 @@ function ParkingLot1() {
       <div className="dashboard-body">
         {loading ? (
           <p role="status">Checking parking availability...</p>
-        ) : error ? (
-          <p className="error" role="alert">{error}</p>
         ) : (
           <>
-            <div className="dashboard-stats">
-              <div className="stat-card">
-                <p className="stat-label">Vehicles detected</p>
-                <p className="stat-value">{carCount}</p>
-              </div>
+            {error && <p className="error" role="alert">{error}</p>}
 
-              {outsideCount !== null && (
+            {!error && (
+              <div className="dashboard-stats">
                 <div className="stat-card">
-                  <p className="stat-label">Outside marked spaces</p>
-                  <p className="stat-value">{outsideCount}</p>
+                  <p className="stat-label">Vehicles detected</p>
+                  <p className="stat-value">{carCount}</p>
                 </div>
-              )}
 
-              <div className="stat-card">
-                <p className="stat-label">Open now</p>
-                <p className="stat-value stat-open">{openCount}</p>
-              </div>
+                {outsideCount !== null && (
+                  <div className="stat-card">
+                    <p className="stat-label">Outside marked spaces</p>
+                    <p className="stat-value">{outsideCount}</p>
+                  </div>
+                )}
 
-              <div className="stat-card">
-                <p className="stat-label">Occupied</p>
-                <p className="stat-value stat-occupied">
-                  {occupiedCount}
-                </p>
-              </div>
-
-              <div className="stat-card">
-                <p className="stat-label">Total spots</p>
-                <p className="stat-value">{spaces.length}</p>
-              </div>
-            </div>
-
-            <div className="dashboard-grid">
-              {spaces.map((space) => (
-                <div
-                  key={space.id}
-                  className={`dashboard-space ${
-                    space.occupied ? 'occupied' : 'open'
-                  }`}
-                >
-                  <p className="dashboard-space-id">{space.id}</p>
-
-                  <p className="dashboard-space-status">
-                    {space.occupied ? 'Occupied' : 'Open'}
-                  </p>
+                <div className="stat-card">
+                  <p className="stat-label">Open now</p>
+                  <p className="stat-value stat-open">{openCount}</p>
                 </div>
-              ))}
-            </div>
+
+                <div className="stat-card">
+                  <p className="stat-label">Occupied</p>
+                  <p className="stat-value stat-occupied">{occupiedCount}</p>
+                </div>
+
+                <div className="stat-card">
+                  <p className="stat-label">Total spots</p>
+                  <p className="stat-value">{spaces.length}</p>
+                </div>
+              </div>
+            )}
+
+            {layoutError && <p className="error">Could not load the lot layout</p>}
+
+            {layout && <LotDiagram layout={layout} statuses={spaces} />}
 
             <div className="dashboard-legend">
               <div className="legend-item">

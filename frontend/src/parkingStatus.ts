@@ -1,6 +1,5 @@
 import { getApiJson } from './apiClient.ts'
 
-// Shared validation for parking occupancy data from the backend.
 export interface ParkingSpaceStatus {
   id: number
   occupied: boolean

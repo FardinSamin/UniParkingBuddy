@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 from backend.accuracy_evaluation import (
-    CAMERA_VIDEOS, PREDICTION_FIELDS, TRUTH_FIELDS,
+    LEGACY_CAMERA_VIDEOS, PREDICTION_FIELDS, TRUTH_FIELDS,
     file_sha256, sample_frame_indices, score_evaluation,
 )
 
@@ -34,7 +34,7 @@ class EvaluationScoringTests(unittest.TestCase):
         self.labels = []
         self.predictions = []
         camera_data = {}
-        for camera, relative_video in CAMERA_VIDEOS.items():
+        for camera, relative_video in LEGACY_CAMERA_VIDEOS.items():
             source = self.root / relative_video
             source.write_bytes(f"synthetic video fixture for {camera}".encode())
             ids = [1, 7] if camera == "camera_1" else [2]

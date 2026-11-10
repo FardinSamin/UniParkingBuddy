@@ -219,6 +219,15 @@ function Welcome() {
             </article>
           )
         })}
+        <section className="forecast-home-cta">
+          <div>
+            <h2>Explore future parking scenarios</h2>
+            <p>Compare estimated availability across all three lots at a selected time. Demo values are illustrative, not actual campus predictions.</p>
+          </div>
+          <button type="button" onClick={() => navigate('/forecast')}>
+            Forecast availability
+          </button>
+        </section>
       </main>
     </div>
   )

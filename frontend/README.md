@@ -1,7 +1,10 @@
 # UniParkingBuddy Frontend
 
 The React + TypeScript web interface is a **read-only** view of monitored
-parking-space availability and descriptive historical observations. The design
+parking-space availability, descriptive historical observations, and an
+explicitly synthetic future-availability demonstration at `/forecast`.
+The demo is not a trained or validated campus prediction; see
+[forecast documentation](../docs/FORECASTING_DEMO.md). The design
 and existing Lot 1/2/3 routes are retained. Configured spaces without
 verified schematic positions remain available in a labeled status list.
 

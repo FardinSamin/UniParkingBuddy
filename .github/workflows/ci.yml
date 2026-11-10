@@ -83,6 +83,8 @@ jobs:
         run: python -m unittest discover -s backend/tests -p 'test_occupancy_repository.py' -v
       - name: Test CV through PostgreSQL and HTTP API
         run: python -m unittest discover -s backend/tests -p 'test_cv_db_api_integration.py' -v
+      - name: Test read-only forecast aggregation against disposable PostgreSQL
+        run: python -m unittest discover -s backend/tests -p 'test_forecast_repository.py' -v
 
   yolo-video-inference:
     name: Real YOLO to PostgreSQL and FastAPI (CPU)

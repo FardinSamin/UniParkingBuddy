@@ -3,8 +3,9 @@
 No database, live camera, accuracy claim or trained model is involved.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from threading import Lock
+from zoneinfo import ZoneInfo
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
@@ -141,10 +142,18 @@ class HistoricalBaselineTests(TestCase):
 class ForecastApiTests(TestCase):
     def setUp(self):
         self.provider = Mock()
+        # API tests must be valid on every calendar date, not just when
+        # the original example was written.
+        target_day = datetime.now(ZoneInfo("America/New_York")).date() + timedelta(days=1)
         self.provider.forecast_hourly_profiles.return_value = [
-            daily_profile(21, 0.0),
-            daily_profile(28, 1.0),
-            daily_profile(14, 0.5),
+            {
+                "local_date": target_day - timedelta(days=7 * week),
+                "weekday": target_day.weekday(),
+                "hour": 14,
+                "occupied_share": share,
+                "snapshots": 1,
+            }
+            for week, share in ((1, 0.0), (2, 1.0), (3, 0.5))
         ]
         captures = {
             "camera_1": configuration([1, 2, 3]),
@@ -152,7 +161,7 @@ class ForecastApiTests(TestCase):
             "camera_3": configuration([1]),
         }
         self.client = TestClient(create_status_app(captures, {}, Lock(), self.provider))
-        self.path = "/api/forecast?at=2026-11-11T14%3A00"
+        self.path = "/api/forecast?at=" + target_day.isoformat() + "T14%3A00"
 
     def test_demo_available_without_history_and_no_write_routes(self):
         with patch.dict("os.environ", {}, clear=True):

@@ -274,6 +274,7 @@ def predict_evaluation(folder, root=PROJECT_ROOT, matching=None):
             "manifest_version": manifest["version"],
             "matching_by_camera": effective_matching,
             "source": "legacy_nano_model" if legacy else "active_camera_models",
+            "predictions_sha256": file_sha256(destination),
         }, indent=2) + "\n", encoding="utf-8",
     )
     return len(entries)
@@ -334,6 +335,28 @@ def score_evaluation(folder, root=PROJECT_ROOT):
     if any(label not in OCCUPANCY_STATES for label in predicted.values()):
         raise ValueError("Model predictions must be AVAILABLE or OCCUPIED")
 
+    prediction_provenance = None
+    if manifest["version"] == 2:
+        metadata_file = folder / "prediction_settings.json"
+        if not metadata_file.is_file():
+            raise ValueError("Missing prediction_settings.json for version-2 evaluation")
+        metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+        modes = metadata.get("matching_by_camera") if isinstance(metadata, dict) else None
+        if (metadata.get("manifest_version") != 2
+                or metadata.get("source") != "active_camera_models"
+                or not isinstance(modes, dict)
+                or set(modes) != set(manifest["cameras"])
+                or any(mode not in ("center", "overlap") for mode in modes.values())
+                or metadata.get("predictions_sha256") != file_sha256(folder / "predictions.csv")):
+            raise ValueError("Invalid, changed or untraceable prediction settings")
+        prediction_provenance = {
+            "matching_by_camera": modes,
+            "matches_live_matching": all(
+                modes[camera] == detector_settings(camera)["matching"]
+                for camera in manifest["cameras"]
+            ),
+        }
+
     scored = [
         (key, label, predicted[key]) for key, label in truth.items()
         if label != UNVERIFIABLE
@@ -356,6 +379,7 @@ def score_evaluation(folder, root=PROJECT_ROOT):
     return {
         "method": "manually_verified_configured_space_classification",
         "manifest_version": manifest["version"],
+        "prediction_provenance": prediction_provenance,
         "states": ["AVAILABLE", "OCCUPIED"],
         "sampled_space_frame_pairs": len(expected),
         "excluded_unverifiable": len(expected) - len(scored),

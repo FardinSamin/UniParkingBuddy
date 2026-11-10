@@ -14,7 +14,7 @@ python backend/main.py
 ```
 
 `python -m backend.main` also works. The backend starts Uvicorn on
-`http://127.0.0.1:5000` and opens the two existing OpenCV test-video
+`http://127.0.0.1:5000` and opens the three configured OpenCV test-video
 windows. The local React frontend can run separately with
 `cd frontend && npm ci && npm run dev`.
 
@@ -36,6 +36,7 @@ so the OpenCV GUI remains on the calling thread.
 |---|---|
 | `GET /api/status/camera_1` | Current configured-space states and vehicle counts |
 | `GET /api/status/camera_2` | Same for Lot 2 |
+| `GET /api/status/camera_3` | Same for Lot 3 (aerial model) |
 | `GET /api/trends/lot1?days=7` | Last 7 days of UTC-hour observed occupancy shares |
 | `GET /api/history/lot1/2` | Up to 100 newest timestamped states for Lot 1, Space 2 |
 

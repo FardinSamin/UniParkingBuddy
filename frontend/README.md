@@ -2,7 +2,8 @@
 
 The React + TypeScript web interface is a **read-only** view of monitored
 parking-space availability and descriptive historical observations. The design
-and existing Lot 1/Lot 2 routes are retained.
+and existing Lot 1/2/3 routes are retained. Configured spaces without
+verified schematic positions remain available in a labeled status list.
 
 ## Local development
 

@@ -6,8 +6,8 @@ React user interface. The SRS requests review against relevant WCAG 2.2
 Level A/AA criteria; it does **not** authorize claiming full formal
 conformance without checking all applicable criteria.
 
-**Scope and constraints:** Read-only homepage, Lot 1/2 current status,
-Lot 1/2 historical trends and missing-data states. Not a native mobile
+**Scope and constraints:** Read-only homepage, Lots 1/2/3 current status,
+Lots 1/2/3 historical trends and missing-data states. Not a native mobile
 app, reservation workflow or vehicle/person identification tool.
 
 ## Test environment
@@ -25,9 +25,9 @@ The actual Playwright/Chromium + Vite + FastAPI job checks:
 
 - Desktop and mobile-size browser rendering without obvious horizontal
   document overflow in the existing smoke test.
-- Lot-card textual OPEN/FULL/COMING SOON indicators and disabled
-  unsupported Lot 3; text status does not rely on color alone.
-- Keyboard Tab focus on the monitored lot cards, Enter to open the
+- Lot-card textual OPEN/FULL/UNAVAILABLE indicators and three actively
+  monitored lots; text status does not rely on color alone.
+- Keyboard Tab focus on the monitored lot buttons, Enter to open the
   detail view, keyboard Enter to navigate into history, keyboard
   ArrowDown to switch configured space, and keyboard return to index.
 - Programmatically confirmed visible CSS focus outlines on primary

@@ -426,14 +426,21 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(cards.nth(2)).to_contain_text("OPEN")
         self.expect(cards.nth(2)).to_be_enabled()
 
-        # No pointer/mouse. Keyboard Tab reaches the monitored lot cards.
+        # Navigate the real focus order without pointer/mouse input.
         page.keyboard.press("Tab")
-        self.expect(cards.nth(0)).to_be_focused()
-        self.assertTrue(cards.nth(0).evaluate(
+        self.expect(page.get_by_role("combobox", name="Sort by")).to_be_focused()
+        page.keyboard.press("Tab")
+        first_button = page.get_by_role("button", name="View Lot 1")
+        self.expect(first_button).to_be_focused()
+        self.assertTrue(first_button.evaluate(
             "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
         ), "The primary keyboard target must show visible focus")
         page.keyboard.press("Tab")
-        self.expect(cards.nth(1)).to_be_focused()
+        self.expect(page.get_by_role(
+            "link", name="Get directions to Lot 1 in Google Maps"
+        )).to_be_focused()
+        page.keyboard.press("Tab")
+        self.expect(page.get_by_role("button", name="View Lot 2")).to_be_focused()
         page.keyboard.press("Enter")
         self.expect(page).to_have_url(re.compile(r"/parking-lot2$"))
 

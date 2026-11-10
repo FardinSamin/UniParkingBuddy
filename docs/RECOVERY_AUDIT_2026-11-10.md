@@ -78,6 +78,10 @@ remaining 16 positions on the schematic images. Do not invent them.
   two-camera nano-model annotations remain readable and scorable.
 - Regression fixtures are explicitly synthetic. Smoke tests establish
   software compatibility, not independently verified CV accuracy.
+- The new `backend/tests/test_recovery_inventory.py` guards the original
+  30 restored backend test modules, core project documents and all three
+  camera/source files against accidental disappearance. It is an automated
+  regression guard, not a substitute for branch protection or code review.
 
 The first fully green revision was 9455a35b75e3e5f4eedb3cc7d4e1480760716bdc:
 https://github.com/FardinSamin/UniParkingBuddy/actions/runs/42835016194

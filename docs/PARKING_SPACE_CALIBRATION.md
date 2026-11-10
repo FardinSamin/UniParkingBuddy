@@ -1,8 +1,9 @@
 # Parking-space calibration (space-first workflow)
 
-Use this **before** tuning YOLO matching. The sample videos contain many
-visible parked cars that are not inside the currently configured stall
-polygons. "Outside configured spaces" does not mean "outside the lot."
+Use this **before** tuning YOLO matching. Source-video polygons are
+configured separately for each camera, but completeness and placement still
+need visual confirmation. "Outside configured spaces" does not necessarily
+mean "outside the physical lot."
 
 The active prototype now configures:
 - `camera_1`: 139 polygons in `configs/camera_1.json`

@@ -341,7 +341,9 @@ def score_evaluation(folder, root=PROJECT_ROOT):
         if not metadata_file.is_file():
             raise ValueError("Missing prediction_settings.json for version-2 evaluation")
         metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
-        modes = metadata.get("matching_by_camera") if isinstance(metadata, dict) else None
+        if not isinstance(metadata, dict):
+            raise ValueError("Invalid, changed or untraceable prediction settings")
+        modes = metadata.get("matching_by_camera")
         if (metadata.get("manifest_version") != 2
                 or metadata.get("source") != "active_camera_models"
                 or not isinstance(modes, dict)

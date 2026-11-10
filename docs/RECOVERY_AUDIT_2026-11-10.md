@@ -69,6 +69,8 @@ remaining 16 positions on the schematic images. Do not invent them.
 - The actual CPU YOLO model and PostgreSQL integration tests now exercise
   Cameras 1, 2 and 3 with their active medium and aerial weights and
   per-camera detection/matching rules, not just the legacy nano model.
+  Frame-level evaluation does not replay every intermediate input needed
+  to reproduce live temporal occupancy smoothing; report that limitation.
 - Independent evaluation uses version-2 manifests with all three source
   videos, each detector's exact model/configuration hashes and settings.
   Predictions use the live matching rules by default, and save provenance

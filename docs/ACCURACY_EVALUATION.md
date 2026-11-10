@@ -69,6 +69,10 @@ New version-2 evaluation bundles use the live **camera-specific settings**:
 - Camera 3: `yolo26m-obb.pt`, aerial vehicle classes, oriented boxes,
   0.08 confidence and center matching.
 - The existing 30-frame sampling cadence and persistent space IDs.
+- This blind **frame-level** evaluation does not replay the live
+  OccupancySmoother's full sequence of intermediate inference passes.
+  Consequently, its score evaluates sampled detection/matching results,
+  not the exact debounced UI state or end-to-end campus performance.
 - `--matching live` (default) follows those individual settings;
   `--matching center` or `--matching overlap` overrides the configured
   rule for comparative experiments and must be labeled as such.

@@ -4,6 +4,7 @@ import ParkingLot1 from './parkinglotroutes/parkinglot1.tsx'
 import ParkingLot2 from './parkinglotroutes/parkinglot2.tsx'
 import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
+import Forecast from './Forecast.tsx'
 import './App.css'
 
 
@@ -16,6 +17,7 @@ function App() {
         <Route path="/parking-lot2" element={<ParkingLot2/>} />
         <Route path="/parking-lot3" element={<ParkingLot3/>} />
         <Route path="/history/:lotId" element={<HistoricalTrends />} />
+        <Route path="/forecast" element={<Forecast />} />
       </Routes>
     </BrowserRouter>
   )

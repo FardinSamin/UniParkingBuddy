@@ -1,5 +1,10 @@
 # UniParkingBuddy backend data contracts — FR-05 through FR-11
 
+**Current optional demonstration extension:** The original SRS API contracts
+remain unchanged. A separate read-only forecast endpoint is described under
+the "Future availability demonstration" section below; it adds no required
+SRS behavior or new occupancy state.
+
 This implements the approved **FastAPI / CV / PostgreSQL boundary** and
 the public read-only monitored-lot interface. No user-facing editing,
 surveillance/enforcement, identity tracking, or additional occupancy domain
@@ -126,3 +131,29 @@ Unit and real PostgreSQL tests cover the above; live browser and camera
 acceptance tests remain separate documented work in
 `docs/VALIDATION.md`. This implementation note does not amend the
 submitted SRS/SOW/WBS baseline.
+
+
+## Future availability demonstration (separate non-baseline extension)
+
+GET /api/forecast?at=YYYY-MM-DDTHH:MM&mode=demo
+
+- Future time is **America/New_York**, not UTC or device-local; minimum
+  future instant and maximum 14-day horizon; DST folds/gaps are rejected.
+- All currently configured lots are compared regardless of whether a valid
+  LIVE video result has arrived. A forecast is NOT current availability.
+- mode=demo is available without a database and returns explicitly labeled
+  synthetic, deterministic example estimates, never actual campus evidence.
+- mode=historical is accessible only with a configured PostgreSQL connection
+  and operator flag PARKING_FORECAST_TRUSTED_HISTORY=1 after independently
+  verified true capture-time data. Replay-processing timestamps are not valid.
+- Historical estimates use complete snapshots and at least 3 distinct
+  same-weekday/hour prior calendar days in the preceding 56 days; otherwise
+  estimated_available, estimated_occupied, and estimated_open_percent are null
+  with status insufficient_history. No silent demo fallback.
+- API returns read-only counts, total capacity, source/model/basis, historical
+  days/snapshots, and historical_enabled; HTTP 400 for invalid input, HTTP
+  503 for unavailable verified history, HTTP 405 for POST.
+- No schema migration, write endpoint, identity data, guarantees or
+  validated forecasting-accuracy claim.
+
+See docs/FORECASTING_DEMO.md for the exact model, semantics, tests and demo.

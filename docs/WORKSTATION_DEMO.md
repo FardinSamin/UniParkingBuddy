@@ -95,6 +95,19 @@ In the browser, check:
   produces **prototype inference events**, not true campus arrival
   frequencies or predictions.
 
+## Optional future-availability demonstration (not SRS acceptance evidence)
+
+Open `/forecast` from the current homepage, select a future campus time,
+and compare synthetic estimates for Lots 1/2/3. Switch between 8 AM, noon,
+5 PM and 9 PM and ensure the result updates. Explicitly identify this
+as an **illustrative software demo**, not observed real campus demand,
+validated prediction accuracy or live parking availability. No PostgreSQL
+is required. The historical option must remain disabled without a
+verified real capture-time dataset and the operator opt-in.
+
+See [forecast methods and validation](FORECASTING_DEMO.md). This optional
+feature does not automatically pass any formal AT-01–AT-08 criterion.
+
 ## Required controlled cases and evidence
 
 Record each outcome in

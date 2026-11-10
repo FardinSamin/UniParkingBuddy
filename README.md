@@ -26,8 +26,10 @@ matching, and Lot 3 uses the aerial `yolo26m-obb.pt` model at confidence 0.08 wi
 
 The system does not automatically discover parking stalls,
 identify people/plates/specific vehicles, reserve spaces, take payments,
-enforce parking, or predict future occupancy. Replayed video observations
-must **not** be presented as current campus traffic.
+or enforce parking. An **explicitly synthetic future-availability demo**
+is available, but **real campus occupancy forecasting has not been validated**.
+Replayed video observations must **not** be presented as current or
+future campus traffic.
 
 ## Windows quick start — sample-video demo (no database required)
 
@@ -91,6 +93,15 @@ Open `http://localhost:5173` (or the URL Vite prints). The browser
 requests `/api` through Vite's same-origin development proxy.
 The webpage should display three monitored cards. Open Lot 1/2/3, verify configured-space text states
 and counts. **Historical trends will be unavailable** with no database.
+
+**New: future availability demo (no database required).** Click **Forecast
+availability** on the homepage, or open the frontend route `/forecast`.
+Choose a future Eastern-campus date/time and compare illustrative open-space
+estimates across all three lots, with quick switches for 8 AM, noon, 5 PM and
+9 PM. These are **synthetic examples, not real campus predictions**. An
+advanced history-based baseline exists but is disabled by default because
+replayed videos have unreliable original capture timestamps. See
+[forecast methods, setup and provenance policy](docs/FORECASTING_DEMO.md).
 
 To inspect FastAPI: `http://127.0.0.1:5000/docs`,
 `/api/lots`, `/api/status/camera_1`. Loading/unavailable is the
@@ -257,6 +268,7 @@ and [research architecture](docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md).
 - [Workstation demonstration and evidence checklist](docs/WORKSTATION_DEMO.md)
 - [Acceptance cases AT-01–AT-08](docs/ACCEPTANCE_TEST_RECORD.md)
 - [Controlled human-verified CV accuracy](docs/ACCURACY_EVALUATION.md)
+- [Future parking-availability demo and historical forecast gate](docs/FORECASTING_DEMO.md)
 - [End-to-end validation plan](docs/VALIDATION.md)
 - [Accessibility and manual WCAG review](docs/ACCESSIBILITY_REVIEW.md)
 - [FastAPI and public API contracts](docs/FASTAPI_MIGRATION.md) /

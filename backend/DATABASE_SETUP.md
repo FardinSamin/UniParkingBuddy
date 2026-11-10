@@ -26,6 +26,20 @@ The SQL schema contains only `parking_lot`, `parking_space`,
 `AVAILABLE`/`OCCUPIED` enum. It stores **no** raw video, identity, faces,
 license plates, detected-vehicle identities, or predictions.
 
+## Optional forecasting extension (does not migrate the SDD schema)
+
+The separate read-only forecast demonstration works with **no database**.
+To derive historical baseline estimates instead of generated demo values,
+a real authorized capture-time dataset must first be independently verified.
+Only then may the operator set `PARKING_FORECAST_TRUSTED_HISTORY=1` alongside
+the private `DATABASE_URL`; default historical mode is disabled. The
+`OccupancyRepository.forecast_hourly_profiles` method performs SELECT-only
+queries on the existing four-table occupancy schema. It requires complete
+per-time snapshots and day-balanced history. Replayed footage timestamps
+must **not** be treated as true campus capture times.
+
+See [forecast policy](../docs/FORECASTING_DEMO.md).
+
 ## Local setup
 
 Install PostgreSQL, create an **empty database** for this project, and install

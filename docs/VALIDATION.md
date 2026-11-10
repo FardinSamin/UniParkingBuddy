@@ -5,6 +5,10 @@
 The normal pull-request checks cover:
 
 - React TypeScript compilation, lint, production build and API contract tests.
+- Labeled synthetic future-availability demo contracts, future campus-time
+  parsing (DST/horizon), full-capacity conservation, historical sample
+  sufficiency and provenance gates. Historical PostgreSQL grouping is
+  checked against a disposable test database, not unreviewed production data.
 - PostgreSQL schema, atomic persistence, historical records and sampled
   trend queries against an isolated test database.
 - **First-frame decoding** of all three committed sample videos using OpenCV,
@@ -44,6 +48,12 @@ history charts/records, API outage,
 recovery, and a narrow mobile-sized viewport. The browser fixture contains
 **explicitly synthetic current and historical states**, rather than
 claiming to have captured real-world observations.
+
+The forecast page is also exercised through Chromium/Vite/FastAPI:
+all three illustrative lot estimates, time switching, the locked historical
+option and the read-only endpoint. This does **not** measure prediction
+accuracy, real campus demand, or trustworthy replay-video event timing.
+See [forecast demo verification](FORECASTING_DEMO.md).
 
 Automated tests still do **not** exercise the OpenCV display windows, the
 actual campus/portable camera, visual ground-truth CV correctness or

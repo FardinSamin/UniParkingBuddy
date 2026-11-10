@@ -7,7 +7,7 @@ The normal pull-request checks cover:
 - React TypeScript compilation, lint, production build and API contract tests.
 - PostgreSQL schema, atomic persistence, historical records and sampled
   trend queries against an isolated test database.
-- **First-frame decoding** of both committed sample videos using OpenCV,
+- **First-frame decoding** of all three committed sample videos using OpenCV,
   and confirmation that all configured polygon corners fit their source
   frame dimensions.
 - Headless synthetic detection boxes -> OpenCV polygon association ->
@@ -18,15 +18,15 @@ The normal pull-request checks cover:
   while already committed history remains retrievable.
 
 A separate dedicated CI job now **loads the committed YOLO weights and runs
-actual CPU inference** on frames 0 and 30 of both configured test videos. It
-checks COCO vehicle class mapping, bounding box validity, and consistency of
-resulting configured-space IDs/states. This is a **model/pipeline smoke test**,
+actual CPU inference** on frames 0 and 30 of all three configured test videos.
+It checks both COCO cameras with their active medium weights and the third
+aerial OBB model, box validity, and configured-space IDs/states. This is a **model/pipeline smoke test**,
 not independent manual verification of parking accuracy.
 
 A **second real-model CI stage now connects the full headless backend
 pipeline**, from actual committed video frames through YOLO and configured
 polygons to transactional PostgreSQL writes and FastAPI response contracts.
-It checks both cameras at frames 0 and 30, read-only current lot/space
+It checks all three cameras at frames 0 and 30, read-only current lot/space
 summaries, per-space history, descriptive hourly totals, persistence rollback,
 cached-frame non-writes and live status recovery after invalidation.
 
@@ -38,8 +38,9 @@ campus traffic conditions.
 A separate **Chromium browser** job exercises the actual built React
 components through a running Vite development server that forwards
 same-origin `/api` requests to a real Uvicorn/FastAPI app. It checks the
-monitored-lot cards (genuinely FULL vs unavailable), disabled unsupported
-Lot 3, logo asset, current-space labels, history charts/records, API outage,
+monitored-lot cards (genuinely FULL vs unavailable), enabled monitored
+Lot 3, logo asset, schematic labels and unmapped-space status list,
+history charts/records, API outage,
 recovery, and a narrow mobile-sized viewport. The browser fixture contains
 **explicitly synthetic current and historical states**, rather than
 claiming to have captured real-world observations.
@@ -86,22 +87,23 @@ is the single entry point for new team clones.
 ## Workstation acceptance test (manual and evidence-based)
 
 Use a fresh clone/checkout of `main` after the relevant PR has been
-merged. Ensure the committed footage files, `yolo26n.pt`, and
-`configs/camera_1.json` and `configs/camera_2.json` exist locally.
+merged. Ensure all three footage files, `yolo26m.pt`,
+`yolo26m-obb.pt`, and `configs/camera_1.json` through
+`configs/camera_3.json` exist locally.
 
 1. Install requirements, and (optionally) create a private PostgreSQL
    test database, apply `backend/schema.sql`, and set `DATABASE_URL`
    **locally**. Do not commit connection strings or passwords.
 2. Start `python backend/main.py` in one terminal. Start the frontend
    with `npm ci` and `npm run dev` from `frontend` in another.
-3. Check that both windows load the correct video and configured regions,
-   each with stable identifiers. Confirm Lot 3 says Coming Soon and
-   is not clickable.
+3. Check that all three video windows load the correct source and configured
+   regions with stable IDs. Confirm Lot 3 is monitored and clickable whenever
+   its camera is actively configured.
 4. Watch a frame where a detection center is inside a configured space:
    its **red SPACE N** marker and the correct configured-space occupancy
    should agree with the HTTP API and React dashboard.
 5. Watch a detection **outside** every configured region: its **yellow
-   OUTSIDE SPACE** marker and count must not change any space to occupied.
+   UNASSIGNED** marker and count must not change any space to occupied.
 6. Compare visible results against **manually verified** Open/Occupied
    states for the configured spaces, using an independently reviewed
    set of test images or time-stamped frame observations.
@@ -112,7 +114,7 @@ merged. Ensure the committed footage files, `yolo26n.pt`, and
    and timezone-aware times. Retry a known valid frame after any failure
    and confirm recovery. Never assume that repeated video playback is
    new real-world traffic.
-9. Open Historical trends for Lots 1/2. Verify correct HTTP/API responses,
+9. Open Historical trends for Lots 1/2/3. Verify correct HTTP/API responses,
    time-zone wording, per-space records, and distinction between a recorded
    0% hour and an hour with **no observations**. On no database, it
    must show an unavailable message.

@@ -4,7 +4,7 @@ UniParkingBuddy has **three preconfigured test-video cameras**:
 
 | Camera | File | Configured spaces |
 | --- | --- | --- |
-| `camera_1` | `configs/camera_1.json` | 135 |
+| `camera_1` | `configs/camera_1.json` | 139 |
 | `camera_2` | `configs/camera_2.json` | 57 |
 | `camera_3` | `configs/camera_3.json` | 69 |
 

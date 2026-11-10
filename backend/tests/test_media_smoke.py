@@ -10,13 +10,12 @@ import unittest
 import cv2
 
 from backend.parking_config import load_config
+from backend.accuracy_evaluation import CAMERA_VIDEOS
+from backend.yolo_detection import detector_settings
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CAMERAS = (
-    ("camera_1", "footage/stockvidsample2.mp4"),
-    ("camera_2", "footage/parkinglotfootage1_1.mp4"),
-)
+CAMERAS = tuple(CAMERA_VIDEOS.items())
 
 
 class VideoConfigurationSmokeTests(unittest.TestCase):
@@ -52,9 +51,14 @@ class VideoConfigurationSmokeTests(unittest.TestCase):
 
     def test_model_file_is_present_not_placeholder(self):
         # File presence alone is NOT a successful YOLO model/inference test.
-        model = ROOT / "yolo26n.pt"
-        self.assertTrue(model.is_file(), "The configured YOLO weights are missing")
-        self.assertGreater(model.stat().st_size, 0, "YOLO model file is empty")
+        weights = {"yolo26n.pt"} | {
+            detector_settings(camera)["weights"] for camera in CAMERA_VIDEOS
+        }
+        for weight in sorted(weights):
+            with self.subTest(weight=weight):
+                model = ROOT / weight
+                self.assertTrue(model.is_file(), f"YOLO weights missing: {weight}")
+                self.assertGreater(model.stat().st_size, 0, f"Empty model file: {weight}")
 
 
 if __name__ == "__main__":

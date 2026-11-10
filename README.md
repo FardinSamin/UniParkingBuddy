@@ -59,7 +59,7 @@ commands do **not** require changing PowerShell's script-execution policy.
 & .\.venv\Scripts\python.exe -m backend.preflight --require-gui
 ```
 
-Expected: `[PASS]` for required files, both decoded video frames,
+Expected: `[PASS]` for required files, all three decoded video frames,
 configured polygons and packages. A `[WARN]` about unset
 `DATABASE_URL` is expected when running **without** historical storage;
 it is not a false success for the historical trends page. A `[FAIL]`
@@ -126,10 +126,13 @@ real-time campus-usage study.
 
 ## Calibrate parking-space geometry before evaluating car matching
 
-The included JSON files currently cover **seven** spaces in camera 1 and
-**four** in camera 2. Many other parked vehicles visible in the sample
-videos are intentionally **unassigned** until their stalls are configured.
-Do not interpret an unassigned detection as proof the car is outside the lot.
+The current JSON configurations contain **139** Camera 1 spaces, **57**
+Camera 2 spaces, and **69** Camera 3 spaces (265 configured IDs total).
+A detected vehicle outside all configured polygons is **unassigned**, not
+necessarily outside the physical lot. The separate schematic diagrams currently
+have verified shapes for 132/139, 48/57 and 69/69 IDs. The other 16 IDs remain
+visible with their live states in a labeled list below the relevant diagram,
+not placed using invented image coordinates.
 
 Stop the running backend and, from the repository root, run the paused-frame
 manual calibration editor for one camera:
@@ -264,6 +267,17 @@ The accuracy workflow requires independently labeled ground truth.
 The CI timing measurements use **synthetic** backend states, not
 physical-camera capture-to-browser times. Neither is an invented
 pass threshold.
+
+### Recovery, model provenance and repeatable evaluation
+
+The root `.gitignore` and original nano-model files were restored using their
+exact Git-history objects. Cameras 1/2 **run** `yolo26m.pt`; Camera 3 **runs**
+`yolo26m-obb.pt`. The older `yolo26n.pt` remains for historical two-camera
+evaluation bundles and experimental defaults. New evaluation runs cover all
+three active camera models and preserve existing v1 evidence. See the
+[recovery audit](docs/RECOVERY_AUDIT_2026-11-10.md) and
+[accuracy protocol](docs/ACCURACY_EVALUATION.md). Neither unit tests nor
+replayed video establish physical-camera or real-time campus accuracy.
 
 ### Basic project checks
 

@@ -19,20 +19,15 @@ from fastapi.testclient import TestClient
 from backend.occupancy_repository import OccupancyRepository, SCHEMA_PATH
 from backend.occupancy_writer import CAMERA_LOTS, initialize_lots
 from backend.parking_config import load_config
-from backend.space_matching import assign_detections_to_spaces, build_space_statuses
+from backend.space_matching import match_detections, build_space_statuses
 from backend.status_api import create_status_app, invalidate_camera_status
 from backend.status_publisher import publish_space_result
-from backend.yolo_detection import (
-    DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE, VEHICLE_CLASS_IDS,
-    boxes_from_yolo_result,
-)
+from backend.yolo_detection import detector_settings, detect_boxes
+from backend.accuracy_evaluation import CAMERA_VIDEOS
 
 
 ROOT = Path(__file__).resolve().parents[2]
-VIDEO_SOURCES = {
-    "camera_1": "footage/stockvidsample2.mp4",
-    "camera_2": "footage/parkinglotfootage1_1.mp4",
-}
+VIDEO_SOURCES = CAMERA_VIDEOS
 
 
 @unittest.skipUnless(
@@ -52,7 +47,10 @@ class RealVideoDatabaseAPITests(unittest.TestCase):
                 raise RuntimeError("Refusing to alter a non-test PostgreSQL database")
             if conn.execute("SELECT to_regclass('parking_lot')").fetchone()[0] is None:
                 conn.execute(Path(SCHEMA_PATH).read_text(encoding="utf-8"))
-        cls.model = YOLO(str(ROOT / "yolo26n.pt"))
+        cls.models = {
+            weight: YOLO(str(ROOT / weight))
+            for weight in {detector_settings(camera)["weights"] for camera in VIDEO_SOURCES}
+        }
 
     def setUp(self):
         with psycopg.connect(self.dsn) as conn:
@@ -87,21 +85,16 @@ class RealVideoDatabaseAPITests(unittest.TestCase):
         finally:
             video.release()
 
-        result = self.model(
-            frame,
-            classes=list(VEHICLE_CLASS_IDS),
-            conf=DETECTION_CONFIDENCE,
-            imgsz=INFERENCE_IMAGE_SIZE,
-            device="cpu",
-            verbose=False,
-        )[0]
-        detections = boxes_from_yolo_result(result)
+        settings = detector_settings(camera)
+        detections = detect_boxes(self.models[settings["weights"]], frame, camera, device="cpu")
         config = self.cameras[camera]["config"]
         contours = [
             np.asarray(space["points"], dtype=np.int32).reshape((-1, 1, 2))
             for space in config["spaces"]
         ]
-        matched, occupied = assign_detections_to_spaces(detections, contours)
+        matched, occupied = match_detections(
+            detections, contours, camera=camera, mode=settings["matching"],
+        )
         statuses = build_space_statuses(config["spaces"], occupied)
         inside = sum(index is not None for index in matched)
         outside = len(detections) - inside
@@ -116,12 +109,12 @@ class RealVideoDatabaseAPITests(unittest.TestCase):
         ))
         return detections, statuses, inside, outside
 
-    def test_two_videos_flow_through_real_inference_storage_and_http(self):
-        # Both cameras must start with unknown live data, but configured
+    def test_three_videos_flow_through_real_inference_storage_and_http(self):
+        # All three cameras must start with unknown live data, but configured
         # IDs must still be visible without inventing current counts.
         initial = self.client.get("/api/lots")
         self.assertEqual(initial.status_code, 200)
-        self.assertEqual([lot["lot_id"] for lot in initial.json()["lots"]], ["lot1", "lot2"])
+        self.assertEqual([lot["lot_id"] for lot in initial.json()["lots"]], ["lot1", "lot2", "lot3"])
         self.assertTrue(all(
             not lot["has_current_data"] and lot["available_spaces"] is None
             for lot in initial.json()["lots"]

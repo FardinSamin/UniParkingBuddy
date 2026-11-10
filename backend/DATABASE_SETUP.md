@@ -16,8 +16,9 @@ Database Design v1.0 (September 21, 2026)**, Section 12.
   - Summarizing a lot without treating a missing current state as Available.
   - Reading time-ordered space occupancy history.
 - `backend/seed_occupancy_database.py`: explicit registration of the existing
-  **Lot 1** and **Lot 2** configurations from `configs/camera_1.json` and
-  `configs/camera_2.json`, respectively.
+  **Lot 1**, **Lot 2**, and **Lot 3** configurations from
+  `configs/camera_1.json`, `configs/camera_2.json` and
+  `configs/camera_3.json`, respectively.
 - PostgreSQL integration tests against an isolated disposable database in CI.
 
 The SQL schema contains only `parking_lot`, `parking_space`,
@@ -84,7 +85,7 @@ print(repo.space_history("lot1", "1"))
 After the database schema is applied, set `DATABASE_URL` in the shell running
 `python backend/main.py`, then start the
 normal FastAPI/Uvicorn/OpenCV backend. The backend automatically registers configured
-Lot 1/Lot 2 regions at startup and **writes each newly inferred per-space
+Lot 1/Lot 2/Lot 3 regions at startup and **writes each newly inferred per-space
 observation before publishing that result** to the live availability API.
 
 - Every valid inference produces a timestamped snapshot of configured

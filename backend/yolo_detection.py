@@ -105,12 +105,14 @@ def boxes_from_obb_result(result, vehicle_names=AERIAL_VEHICLE_NAMES):
     return boxes
 
 
-def detect_boxes(model, frame, camera):
+def detect_boxes(model, frame, camera, *, device=None):
     """Run the camera's configured detector and return anonymous boxes."""
     settings = detector_settings(camera)
     kwargs = {"conf": settings.get("conf", DETECTION_CONFIDENCE), "imgsz": settings["imgsz"], "verbose": False}
     if settings["classes"] is not None:
         kwargs["classes"] = settings["classes"]
+    if device is not None:
+        kwargs["device"] = device
     result = model(frame, **kwargs)[0]
     if settings["oriented"]:
         return dedupe_boxes(boxes_from_obb_result(result))

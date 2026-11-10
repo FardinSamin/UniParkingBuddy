@@ -12,8 +12,8 @@ real performance results.
 
 ## 1. Prepare a fixed, blind evaluation set
 
-From a clone containing the latest committed source videos, configurations,
-and `yolo26n.pt`:
+From a clone containing all three active source videos, configurations, and
+the deployed `yolo26m.pt` / `yolo26m-obb.pt` models:
 
 ```sh
 python -m pip install -r requirements.txt
@@ -21,10 +21,10 @@ python -m backend.evaluate_accuracy prepare --output evaluation_runs/round1
 ```
 
 This creates:
-- `evaluation_runs/round1/manifest.json`: both source videos, deterministic
-  sampled frame indices, configured-space IDs, and SHA-256 checksums of video,
-  region configs and exact model weights.
-- `evaluation_runs/round1/frames/camera_1/*.png` and similarly camera 2:
+- `evaluation_runs/round1/manifest.json`: all three source videos,
+  deterministic sampled frame indices, configured-space IDs, and SHA-256
+  checksums of video, region configs, active models and inference settings.
+- `evaluation_runs/round1/frames/camera_1/*.png` and similarly cameras 2/3:
   previews with **configured polygon outlines and space IDs only**. No
   model detections or proposed Occupied/Available labels are shown.
 - `evaluation_runs/round1/ground_truth.csv`: **blank** ground-truth
@@ -63,15 +63,25 @@ the annotator(s), review date and uncertainty/occlusion reasoning separately.
 python -m backend.evaluate_accuracy predict --output evaluation_runs/round1
 ```
 
-This loads the committed model weights locally and uses the same:
-- YOLO vehicle classes 2/3/7 (car/motorcycle/truck)
-- confidence and input image size
-- every-30-frame inference cadence
-- center-point-in-configured-polygon rule
-- persistent configured-space identifiers
+New version-2 evaluation bundles use the live **camera-specific settings**:
+- Cameras 1/2: `yolo26m.pt`, COCO classes 2/3/7, each camera's configured
+  image size and overlap matching.
+- Camera 3: `yolo26m-obb.pt`, aerial vehicle classes, oriented boxes,
+  0.08 confidence and center matching.
+- The existing 30-frame sampling cadence and persistent space IDs.
+- This blind **frame-level** evaluation does not replay the live
+  OccupancySmoother's full sequence of intermediate inference passes.
+  Consequently, its score evaluates sampled detection/matching results,
+  not the exact debounced UI state or end-to-end campus performance.
+- `--matching live` (default) follows those individual settings;
+  `--matching center` or `--matching overlap` overrides the configured
+  rule for comparative experiments and must be labeled as such.
+- Version-1 two-camera nano-model bundles remain readable with unchanged
+  evidence requirements; do not rewrite archived human labels.
 
-Predictions are stored separately in `predictions.csv` and contain only
-space-level `AVAILABLE`/`OCCUPIED` values. No faces, plates, specific
+Predictions are stored separately in `predictions.csv`; an additional
+`prediction_settings.json` records the applied matching rule per camera.
+All outputs remain anonymous space-level `AVAILABLE`/`OCCUPIED` values. No faces, plates, specific
 vehicle identities, or video data are written to PostgreSQL.
 
 Model or source changes invalidate the sample evidence: checksums must

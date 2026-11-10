@@ -8,7 +8,7 @@ state is introduced.
 ## Configured monitored lots
 
 `GET /api/lots` returns only cameras/lots actively configured in the
-backend, ordered by the existing two-camera mapping:
+backend, ordered by the current three-camera mapping:
 
 ```json
 {
@@ -31,8 +31,9 @@ The IDs and counts here are **illustrative schema examples**, not a claim
 about the actual number of spots in the current committed configurations.
 When a camera has **no current validated occupancy result**,
 `has_current_data` is false and current counts are `null` — not zero.
-A camera removed from active monitoring is not listed. The unsupported
-Lot 3 card is not a monitored lot and is not returned.
+A camera removed from active monitoring is not listed. Lots 1, 2 and 3
+are all configured sample-video monitors in the present implementation.
+No current observation means unavailable, not zero open spaces.
 
 `GET /api/lots/{lot_id}/spaces` returns a configured, active lot with
 the persistent space IDs and current state, for example:

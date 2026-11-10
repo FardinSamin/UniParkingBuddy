@@ -16,10 +16,11 @@ for requirements and official acceptance conditions.
 3. Record team members/reviewers present, time zone, workstation OS,
    Python, Node/npm and installed package versions **actually used**.
    Use private local logs rather than committing credentials or video frames.
-4. Keep the two committed source videos and manually configured JSON
+4. Keep all three committed source videos and manually configured JSON
    regions together: `camera_1` → `footage/stockvidsample2.mp4`,
-   `camera_2` → `footage/parkinglotfootage1_1.mp4`. Their current
-   configured-space IDs must come from the JSON; don't rename or invent IDs.
+   `camera_2` → `footage/parkinglotfootage1_1.mp4`, and `camera_3`
+   → `footage/parkinglot3.mp4`. Current IDs come from the respective
+   JSON; do not rename, omit, or invent them.
 5. Verify local OpenCV **GUI** availability; this backend opens windows
    and cannot be presented as a headless production server. The current
    `backend/main.py` explicitly uses the prerecorded video files.
@@ -63,8 +64,8 @@ In PowerShell terminal 1, from repository root:
 & .\.venv\Scripts\python.exe -m backend.main
 ```
 
-Observe that **two video windows** open and show a marked polygon
-for each configured space. Verify names `camera_1` and `camera_2`,
+Observe that **three video windows** open and show a marked polygon
+for each configured space. Verify names `camera_1`, `camera_2`, and `camera_3`,
 stable IDs, green open/red occupied region colors, and marked vehicle
 centers. YOLO may require local processing time, especially on CPU.
 
@@ -78,10 +79,12 @@ npm run dev
 Open the printed Vite URL (normally `http://localhost:5173`).
 In the browser, check:
 
-- Homepage shows monitored Lots 1 and 2 with current statuses; Lot 3
-  remains a visibly disabled placeholder.
-- Open each lot, compare available/occupied/total counts and each
-  configured-space label to the current OpenCV window and API.
+- Homepage shows all three configured monitored lots with current statuses
+  or clearly marked unavailable states.
+- Open each lot, compare available/occupied/total counts and every
+  configured-space ID to OpenCV and FastAPI. The frontend schematics currently
+  lack independently verified coordinates for seven Lot 1 and nine Lot 2
+  IDs; their states appear below the maps in a labeled list.
 - Open FastAPI docs at `http://127.0.0.1:5000/docs`. The public
   routes must be GET-only for viewing, not writing occupancy.
 - In another PowerShell terminal, optionally inspect current data:
@@ -154,9 +157,9 @@ With a video window in focus:
 - `q`: exit the backend video processing loop and release windows.
 - `m`: toggle manual space marking **only without DATABASE_URL**;
   avoid editing region files during a controlled validation round.
-- `1` or `2`: remove the corresponding camera from active monitoring
+- `1`, `2` or `3`: remove the corresponding camera from active monitoring
   for this run; use only in a recorded failure/recovery test, and restart
-  for a fresh two-camera baseline.
+  for the full three-camera configuration.
 
 Terminate Vite in its PowerShell terminal with `Ctrl+C`. If you used
 a local private PostgreSQL database, keep only necessary, access-

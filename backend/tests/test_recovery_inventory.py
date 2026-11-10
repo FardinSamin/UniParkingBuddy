@@ -25,6 +25,7 @@ REQUIRED_DOCUMENTS = (
     "docs/EXPERIMENT_STALL_GEOMETRY.md",
     "docs/EXPERIMENT_STALL_QUALITY_REVIEW.md",
     "docs/FASTAPI_MIGRATION.md",
+    "docs/FORECASTING_DEMO.md",
     "docs/HISTORY.md",
     "docs/PARKING_SPACE_CALIBRATION.md",
     "docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md",
@@ -36,6 +37,8 @@ REQUIRED_DOCUMENTS = (
 
 REQUIRED_TEST_MODULES = (
     "test_accuracy_bundle_smoke.py",
+    "test_availability_forecast.py",
+    "test_forecast_repository.py",
     "test_accuracy_evaluation.py",
     "test_browser_react_fastapi.py",
     "test_calibrate_spaces.py",
@@ -95,6 +98,10 @@ class RecoveryInventoryTests(unittest.TestCase):
             "footage/parkinglotfootage1_1.mp4",
             "footage/parkinglot3.mp4",
             "backend/schema.sql",
+            "backend/availability_forecast.py",
+            "frontend/src/Forecast.tsx",
+            "frontend/src/forecastApi.ts",
+            "frontend/tests/forecastApi.test.mjs",
             ".github/workflows/ci.yml",
         )
         for filename in required:

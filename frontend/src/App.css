@@ -625,3 +625,8 @@ body {
   display: block;
   border-radius: 12px;
 }
+/* Spaces present in the occupancy API without verified schematic coordinates. */
+.unmapped-spaces { margin: 1rem 0; padding: 1rem; border: 1px solid #adb5bd; border-radius: 8px; }
+.unmapped-spaces p { margin: 0 0 0.75rem; }
+.unmapped-space-list { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin: 0; padding-left: 1.5rem; }
+.unmapped-space.occupied { font-weight: 700; }

@@ -503,6 +503,80 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(page).to_have_url(re.compile(r"/$"))
         self.expect(cards.nth(2)).to_be_enabled()
 
+    def test_forecast_demo_end_to_end_is_labeled_and_independent_of_history(self):
+        """Real Chromium -> Vite -> FastAPI; no synthetic value called campus truth."""
+        from urllib.parse import quote
+
+        self.restore_live_status()
+        page = self.browser.new_page(viewport={"width": 1200, "height": 800})
+        self.addCleanup(page.close)
+        page.goto(self.base_url, wait_until="domcontentloaded")
+        link = page.get_by_role("button", name="Forecast availability")
+        self.expect(link).to_be_visible(timeout=15000)
+        link.click()
+        self.expect(page).to_have_url(re.compile(r"/forecast$"))
+        self.expect(page.get_by_role(
+            "heading", name="Future parking availability"
+        )).to_be_visible()
+
+        self.expect(page.get_by_text(
+            "SYNTHETIC DEMONSTRATION DATA"
+        )).to_be_visible(timeout=15000)
+        self.expect(page.locator(".forecast-lot")).to_have_count(3)
+        at = page.locator("#forecast-at").input_value()
+        self.assertRegex(at, r"^\d{4}-\d{2}-\d{2}T14:00$")
+        response = page.request.get(
+            self.base_url + "/api/forecast?at=" + quote(at, safe="") + "&mode=demo"
+        )
+        self.assertEqual(response.status, 200)
+        data = response.json()
+        self.assertEqual(data["source"], "synthetic_demo")
+        self.assertEqual(data["mode"], "demo")
+        self.assertEqual([lot["total_spaces"] for lot in data["lots"]], [
+            len(self.cameras[camera]["config"]["spaces"])
+            for camera in ("camera_1", "camera_2", "camera_3")
+        ])
+        for lot in data["lots"]:
+            self.assertEqual(lot["status"], "illustrative")
+            self.assertEqual(
+                lot["estimated_available"] + lot["estimated_occupied"],
+                lot["total_spaces"],
+            )
+
+        before = data["lots"][0]["estimated_available"]
+        page.get_by_role("button", name="8 AM").click()
+        self.expect(page.locator("#forecast-at")).to_have_value(
+            at[:10] + "T08:00"
+        )
+        self.expect(page.get_by_text("SYNTHETIC DEMONSTRATION DATA")).to_be_visible()
+        eight = page.request.get(
+            self.base_url + "/api/forecast?at=" +
+            quote(at[:10] + "T08:00", safe="") + "&mode=demo"
+        )
+        self.assertEqual(eight.status, 200)
+        self.assertNotEqual(
+            before, eight.json()["lots"][0]["estimated_available"],
+            "Illustrative comparison must respond to a different selected hour",
+        )
+        self.expect(page.locator(".forecast-lot")).to_have_count(3)
+
+        self.assertTrue(page.locator(
+            '#forecast-mode option[value="historical"]'
+        ).is_disabled())
+        self.assertEqual(
+            page.request.get(
+                self.base_url + "/api/forecast?at=" +
+                quote(at, safe="") + "&mode=historical"
+            ).status,
+            503,
+        )
+        self.assertEqual(page.request.post(self.base_url + "/api/forecast").status, 405)
+        self.assertEqual(page.request.get(self.base_url + "/api/forecast?at=invalid").status, 400)
+        page.set_viewport_size({"width": 390, "height": 844})
+        self.assertLessEqual(
+            page.evaluate("document.documentElement.scrollWidth"), 392
+        )
+
     def test_browser_does_not_invent_trends_during_storage_outage(self):
         # Test-only history provider raises like failed PostgreSQL; the
         # actual FastAPI error handler must return a sanitized HTTP 503.

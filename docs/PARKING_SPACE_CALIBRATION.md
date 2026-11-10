@@ -4,11 +4,15 @@ Use this **before** tuning YOLO matching. The sample videos contain many
 visible parked cars that are not inside the currently configured stall
 polygons. "Outside configured spaces" does not mean "outside the lot."
 
-The current committed baseline intentionally monitors only:
-- `camera_1`: seven polygons in `configs/camera_1.json`
-- `camera_2`: four polygons in `configs/camera_2.json`
+The active prototype now configures:
+- `camera_1`: 139 polygons in `configs/camera_1.json`
+- `camera_2`: 57 polygons in `configs/camera_2.json`
+- `camera_3`: 69 polygons in `configs/camera_3.json`
 
-Those are **not** complete maps of every parking stall visible in either video.
+These are separate from the manually drawn *schematic* polygons. The older
+seven/four-space description is historical, not the active implementation.
+Sixteen configured IDs lack verified schematic coordinates; the frontend
+shows their states in a list rather than inventing image positions.
 Do not mark an unmapped vehicle as an occupancy error until it has a
 verified, configured stall to match.
 
@@ -23,7 +27,7 @@ verified, configured stall to match.
 2. In CMD, from the repository root:
 
    ```cmd
-   cd /d C:\Users\Fardin\UniParkingBuddy
+   cd /d C:\path\to\UniParkingBuddy
    git pull --ff-only
    .venv\Scripts\python.exe -m backend.calibrate_spaces --camera camera_1 --frame 0
    ```
@@ -33,6 +37,8 @@ verified, configured stall to match.
    ```cmd
    .venv\Scripts\python.exe -m backend.calibrate_spaces --camera camera_2 --frame 0
    ```
+
+   For the aerial third source, use `--camera camera_3 --frame 0`.
 
    To examine a different paused frame, exit and rerun with a different
    nonnegative `--frame` index. For a smaller window, use `--width 960`.
@@ -58,7 +64,7 @@ verified, configured stall to match.
 
    This is a **manual geometry editor**; it does not run YOLO, invent
    boundaries, or automatically classify any car as parked. The tool
-   operates on the two existing sample videos and never writes to the
+   operates on all three existing sample videos and never writes to the
    application database.
 
 4. After saving, verify configuration and restart the app:

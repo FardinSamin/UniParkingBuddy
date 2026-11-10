@@ -21,7 +21,7 @@ submitted SOW, WBS/Gantt, SRS or SDD requirements baseline.
   unverified substitutes.
 - The nano detection model is used by the legacy evaluation/research code,
   but **not** by any active camera.
-- The nine previously tracked backend/__pycache__/*.pyc files remain in the
+- The eight previously tracked backend/__pycache__/*.pyc files remain in the
   branch: restoring .gitignore stops new untracked bytecode but does not
   remove already tracked files. Generated-artifact cleanup requires a
   separate reviewed decision; no source or test was removed here.

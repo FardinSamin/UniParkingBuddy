@@ -1,5 +1,10 @@
 # Research decision: adaptive parking-space discovery and occupancy
 
+> **Historical research-planning snapshot:** The original two-camera 7/4-space
+> descriptions below refer to an earlier prototype, not the current three-camera
+> 139/57/69-space implementation. Automatic stall discovery remains experimental;
+> see README.md and docs/RECOVERY_AUDIT_2026-11-10.md for current status.
+
 **Status:** Agreed exploratory architecture direction (October 10, 2026). Research/implementation plan, **not** a change to the submitted SOW, WBS, SRS, or SDD; not a claim that automatic discovery is already implemented or validated.
 
 ## The problem seen in the first Windows demonstration

@@ -1,7 +1,10 @@
 
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import './App.tsx'
+import './App.css'
+
+// Retained legacy list view (not routed by App.tsx); use the current
+// same-origin FastAPI contract rather than a dead localhost endpoint.
 
 interface ParkingSpace {
   id: number
@@ -21,7 +24,7 @@ function ParkingStatus() {
 
   useEffect(() => {
     const fetchSpaces = () => {
-      fetch('http://localhost:5000/api/status')
+      fetch('/api/status/camera_1')
         .then((res) => {
           if (!res.ok) {
             throw new Error('Failed to fetch')
@@ -34,7 +37,9 @@ function ParkingStatus() {
           setError(null)
         })
         .catch(() => {
-          setError('Could not reach parking status server')
+          setSpaces([])
+          setCarCount(0)
+          setError('Current parking status is unavailable')
         })
     }
 
@@ -64,7 +69,7 @@ function ParkingStatus() {
       </div>
 
       <div className="dashboard-body">
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
 
         {!error && (
           <>

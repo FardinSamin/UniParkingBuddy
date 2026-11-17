@@ -14,6 +14,7 @@ function ParkingLot3() {
   const [outsideCount, setOutsideCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const showDebug = new URLSearchParams(window.location.search).has('debug')
 
   useEffect(() => {
     fetch('/diagrams/lot3.json')
@@ -101,17 +102,20 @@ function ParkingLot3() {
 
             {!error && (
               <div className="dashboard-stats">
-                <div className="stat-card">
-                  <p className="stat-label">Vehicles detected</p>
-                  <p className="stat-value">{carCount}</p>
-                </div>
+               {showDebug && (
+                  <div className="stat-card">
+                    <p className="stat-label">Vehicles detected</p>
+                    <p className="stat-value">{carCount}</p>
+                  </div>
+                )}
 
-                {outsideCount !== null && (
+                {showDebug && outsideCount !== null && (
                   <div className="stat-card">
                     <p className="stat-label">Outside marked spaces</p>
                     <p className="stat-value">{outsideCount}</p>
                   </div>
                 )}
+
 
                 <div className="stat-card">
                   <p className="stat-label">Open now</p>

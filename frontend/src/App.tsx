@@ -4,18 +4,22 @@ import ParkingLot1 from './parkinglotroutes/parkinglot1.tsx'
 import ParkingLot2 from './parkinglotroutes/parkinglot2.tsx'
 import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
+import NavBar from './Navigationbar.tsx'
+import About from './About.tsx'
 import './App.css'
 
 
 function App() {
   return (
     <BrowserRouter>
+     <NavBar />
       <Routes>
         <Route path="/" element={<Welcome />} /> 
         <Route path="/parking-lot1" element={<ParkingLot1/>} />
         <Route path="/parking-lot2" element={<ParkingLot2/>} />
         <Route path="/parking-lot3" element={<ParkingLot3/>} />
         <Route path="/history/:lotId" element={<HistoricalTrends />} />
+        <Route path="/about" element={<About />} />
       </Routes>
     </BrowserRouter>
   )

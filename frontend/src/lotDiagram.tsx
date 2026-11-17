@@ -32,14 +32,9 @@ function LotDiagram({ layout, statuses }: Props) {
   const strokeWidth = Math.max(1.2, layout.width / 450)
   const fontSize = layout.labelSize ?? Math.round(layout.width / 56)
   const stalls = buildStalls(layout)
-  const mappedIds = new Set(stalls.map((stall) => stall.id))
-  // Preserve statuses for configured spaces whose positions have not yet
-  // been independently drawn/verified on this schematic image.
-  const unmapped = statuses.filter((space) => !mappedIds.has(space.id))
-    .sort((a, b) => a.id - b.id)
+  // Unmapped spaces still contribute to API-based counts; no locations are guessed.
 
   return (
-    <>
     <svg
       viewBox={`0 0 ${layout.width} ${layout.height}`}
       className="lot-diagram"
@@ -89,19 +84,6 @@ function LotDiagram({ layout, statuses }: Props) {
         )
       })}
     </svg>
-    {unmapped.length > 0 && (
-      <section className="unmapped-spaces" aria-label="Configured spaces not drawn on the diagram">
-        <p>Some configured spaces have no verified position on this schematic. Their current states are shown here instead of placing them inaccurately.</p>
-        <ul className="unmapped-space-list">
-          {unmapped.map((space) => (
-            <li key={space.id} className={`unmapped-space ${space.occupied ? 'occupied' : 'open'}`} data-space-id={space.id} data-status={space.occupied ? 'OCCUPIED' : 'AVAILABLE'}>
-              Space {space.id}: {space.occupied ? 'Occupied' : 'Open'}
-            </li>
-          ))}
-        </ul>
-      </section>
-    )}
-    </>
   )
 }
 

@@ -16,14 +16,29 @@ Database Design v1.0 (September 21, 2026)**, Section 12.
   - Summarizing a lot without treating a missing current state as Available.
   - Reading time-ordered space occupancy history.
 - `backend/seed_occupancy_database.py`: explicit registration of the existing
-  **Lot 1** and **Lot 2** configurations from `configs/camera_1.json` and
-  `configs/camera_2.json`, respectively.
+  **Lot 1**, **Lot 2**, and **Lot 3** configurations from
+  `configs/camera_1.json`, `configs/camera_2.json` and
+  `configs/camera_3.json`, respectively.
 - PostgreSQL integration tests against an isolated disposable database in CI.
 
 The SQL schema contains only `parking_lot`, `parking_space`,
 `parking_space_region`, and `occupancy_record`, plus the
 `AVAILABLE`/`OCCUPIED` enum. It stores **no** raw video, identity, faces,
 license plates, detected-vehicle identities, or predictions.
+
+## Optional forecasting extension (does not migrate the SDD schema)
+
+The separate read-only forecast demonstration works with **no database**.
+To derive historical baseline estimates instead of generated demo values,
+a real authorized capture-time dataset must first be independently verified.
+Only then may the operator set `PARKING_FORECAST_TRUSTED_HISTORY=1` alongside
+the private `DATABASE_URL`; default historical mode is disabled. The
+`OccupancyRepository.forecast_hourly_profiles` method performs SELECT-only
+queries on the existing four-table occupancy schema. It requires complete
+per-time snapshots and day-balanced history. Replayed footage timestamps
+must **not** be treated as true campus capture times.
+
+See [forecast policy](../docs/FORECASTING_DEMO.md).
 
 ## Local setup
 
@@ -84,7 +99,7 @@ print(repo.space_history("lot1", "1"))
 After the database schema is applied, set `DATABASE_URL` in the shell running
 `python backend/main.py`, then start the
 normal FastAPI/Uvicorn/OpenCV backend. The backend automatically registers configured
-Lot 1/Lot 2 regions at startup and **writes each newly inferred per-space
+Lot 1/Lot 2/Lot 3 regions at startup and **writes each newly inferred per-space
 observation before publishing that result** to the live availability API.
 
 - Every valid inference produces a timestamped snapshot of configured

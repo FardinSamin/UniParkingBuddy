@@ -4,3 +4,4 @@ ultralytics
 fastapi
 uvicorn
 psycopg[binary]>=3.2,<4
+tzdata>=2025.1

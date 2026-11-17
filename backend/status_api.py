@@ -5,6 +5,8 @@ while replacing the temporary Flask implementation.
 """
 
 import logging
+import os
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import FastAPI
@@ -14,8 +16,10 @@ from pydantic import BaseModel
 
 if __package__:
     from .occupancy_writer import CAMERA_LOTS
+    from .availability_forecast import forecast_response, parse_target
 else:
     from occupancy_writer import CAMERA_LOTS
+    from availability_forecast import forecast_response, parse_target
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +81,29 @@ class TrendsResponse(BaseModel):
     basis: str
 
 
+class ForecastLotResponse(BaseModel):
+    lot_id: str
+    display_label: str
+    total_spaces: int
+    status: Literal["illustrative", "historical_estimate", "insufficient_history"]
+    estimated_available: int | None
+    estimated_occupied: int | None
+    estimated_open_percent: float | None
+    historical_days: int
+    historical_snapshots: int
+
+
+class ForecastResponse(BaseModel):
+    requested_at: str
+    timezone: Literal["America/New_York"]
+    mode: Literal["demo", "historical"]
+    source: Literal["synthetic_demo", "verified_history"]
+    model: str
+    basis: str
+    historical_enabled: bool
+    lots: list[ForecastLotResponse]
+
+
 class HistoryRecordResponse(BaseModel):
     status: Literal["AVAILABLE", "OCCUPIED"]
     observed_at: str
@@ -104,8 +131,8 @@ def create_status_app(camera_captures, latest_status, status_lock, persistence=N
     """Construct the FastAPI app without opening video windows or a database."""
     app = FastAPI(
         title="UniParkingBuddy API",
-        description="Read-only current occupancy and historical observations.",
-        version="1.0.0",
+        description="Read-only current occupancy, descriptive history and labeled future demo.",
+        version="1.1.0",
     )
     # The public browser interface performs reads only. No credentialed
     # cross-origin endpoint is exposed in this milestone.
@@ -146,7 +173,7 @@ def create_status_app(camera_captures, latest_status, status_lock, persistence=N
 
     @app.get("/api/lots", response_model=ConfiguredLotsResponse)
     def get_configured_lots():
-        """Configured monitored lots only (no unsupported Lot 3 entry)."""
+        """Configured monitored lots only; all three current cameras are active."""
         lots = []
         for lot_id, label, camera, ids, states in configured_lots():
             lots.append({
@@ -199,6 +226,42 @@ def create_status_app(camera_captures, latest_status, status_lock, persistence=N
                 for space in current["spaces"]
             ],
         }
+
+    @app.get("/api/forecast", response_model=ForecastResponse)
+    def get_availability_forecast(at: str = "", mode: str = "demo"):
+        """Compare lots at a future America/New_York wall-clock time.
+
+        Demo does not read or write the database. Actual history-based
+        inference requires the deliberate trusted-timestamp operator flag;
+        recorded-video replay timestamps do not qualify by default.
+        """
+        if mode not in ("demo", "historical"):
+            return _error("mode must be demo or historical", 400)
+        now = datetime.now(timezone.utc)
+        try:
+            target = parse_target(at, now=now)
+        except ValueError as error:
+            return _error(str(error), 400)
+
+        historical_enabled = (
+            persistence is not None
+            and os.environ.get("PARKING_FORECAST_TRUSTED_HISTORY") == "1"
+        )
+        if mode == "historical" and not historical_enabled:
+            return _error(
+                "Verified historical forecasting is not enabled; use the labeled demo",
+                503,
+            )
+        try:
+            payload = forecast_response(
+                configured_lots(), target, mode,
+                history_provider=persistence if historical_enabled else None,
+                now=now,
+            )
+        except Exception:
+            logger.exception("Forecast could not be calculated")
+            return _error("Forecast service is temporarily unavailable", 503)
+        return {**payload, "historical_enabled": historical_enabled}
 
     @app.get("/api/trends/{lot_id}", response_model=TrendsResponse)
     def get_trends(lot_id: str, days: str = "7"):

@@ -6,26 +6,25 @@ import ParkingLot3 from './parkinglotroutes/parkinglot3.tsx'
 import HistoricalTrends from './HistoricalTrends.tsx'
 import NavBar from './Navigationbar.tsx'
 import About from './About.tsx'
+import Forecast from './Forecast.tsx'
 import './App.css'
 
 
 function App() {
   return (
     <BrowserRouter>
-     <NavBar />
+      <NavBar />
       <Routes>
-        <Route path="/" element={<Welcome />} /> 
-        <Route path="/parking-lot1" element={<ParkingLot1/>} />
-        <Route path="/parking-lot2" element={<ParkingLot2/>} />
-        <Route path="/parking-lot3" element={<ParkingLot3/>} />
+        <Route path="/" element={<Welcome />} />
+        <Route path="/parking-lot1" element={<ParkingLot1 />} />
+        <Route path="/parking-lot2" element={<ParkingLot2 />} />
+        <Route path="/parking-lot3" element={<ParkingLot3 />} />
         <Route path="/history/:lotId" element={<HistoricalTrends />} />
         <Route path="/about" element={<About />} />
+        <Route path="/forecast" element={<Forecast />} />
       </Routes>
     </BrowserRouter>
   )
 }
-
-
-
 
 export default App

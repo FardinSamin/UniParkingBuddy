@@ -26,8 +26,10 @@ matching, and Lot 3 uses the aerial `yolo26m-obb.pt` model at confidence 0.08 wi
 
 The system does not automatically discover parking stalls,
 identify people/plates/specific vehicles, reserve spaces, take payments,
-enforce parking, or predict future occupancy. Replayed video observations
-must **not** be presented as current campus traffic.
+or enforce parking. An **explicitly synthetic future-availability demo**
+is available, but **real campus occupancy forecasting has not been validated**.
+Replayed video observations must **not** be presented as current or
+future campus traffic.
 
 ## Windows quick start — sample-video demo (no database required)
 
@@ -59,7 +61,7 @@ commands do **not** require changing PowerShell's script-execution policy.
 & .\.venv\Scripts\python.exe -m backend.preflight --require-gui
 ```
 
-Expected: `[PASS]` for required files, both decoded video frames,
+Expected: `[PASS]` for required files, all three decoded video frames,
 configured polygons and packages. A `[WARN]` about unset
 `DATABASE_URL` is expected when running **without** historical storage;
 it is not a false success for the historical trends page. A `[FAIL]`
@@ -91,6 +93,15 @@ Open `http://localhost:5173` (or the URL Vite prints). The browser
 requests `/api` through Vite's same-origin development proxy.
 The webpage should display three monitored cards. Open Lot 1/2/3, verify configured-space text states
 and counts. **Historical trends will be unavailable** with no database.
+
+**New: future availability demo (no database required).** Click **Forecast
+availability** on the homepage, or open the frontend route `/forecast`.
+Choose a future Eastern-campus date/time and compare illustrative open-space
+estimates across all three lots, with quick switches for 8 AM, noon, 5 PM and
+9 PM. These are **synthetic examples, not real campus predictions**. An
+advanced history-based baseline exists but is disabled by default because
+replayed videos have unreliable original capture timestamps. See
+[forecast methods, setup and provenance policy](docs/FORECASTING_DEMO.md).
 
 To inspect FastAPI: `http://127.0.0.1:5000/docs`,
 `/api/lots`, `/api/status/camera_1`. Loading/unavailable is the
@@ -126,10 +137,13 @@ real-time campus-usage study.
 
 ## Calibrate parking-space geometry before evaluating car matching
 
-The included JSON files currently cover **seven** spaces in camera 1 and
-**four** in camera 2. Many other parked vehicles visible in the sample
-videos are intentionally **unassigned** until their stalls are configured.
-Do not interpret an unassigned detection as proof the car is outside the lot.
+The current JSON configurations contain **139** Camera 1 spaces, **57**
+Camera 2 spaces, and **69** Camera 3 spaces (265 configured IDs total).
+A detected vehicle outside all configured polygons is **unassigned**, not
+necessarily outside the physical lot. The separate schematic diagrams currently
+have verified shapes for 132/139, 48/57 and 69/69 IDs. The other 16 IDs remain
+visible with their live states in a labeled list below the relevant diagram,
+not placed using invented image coordinates.
 
 Stop the running backend and, from the repository root, run the paused-frame
 manual calibration editor for one camera:
@@ -254,6 +268,7 @@ and [research architecture](docs/RESEARCH_ADAPTIVE_SPACE_DISCOVERY.md).
 - [Workstation demonstration and evidence checklist](docs/WORKSTATION_DEMO.md)
 - [Acceptance cases AT-01–AT-08](docs/ACCEPTANCE_TEST_RECORD.md)
 - [Controlled human-verified CV accuracy](docs/ACCURACY_EVALUATION.md)
+- [Future parking-availability demo and historical forecast gate](docs/FORECASTING_DEMO.md)
 - [End-to-end validation plan](docs/VALIDATION.md)
 - [Accessibility and manual WCAG review](docs/ACCESSIBILITY_REVIEW.md)
 - [FastAPI and public API contracts](docs/FASTAPI_MIGRATION.md) /
@@ -264,6 +279,17 @@ The accuracy workflow requires independently labeled ground truth.
 The CI timing measurements use **synthetic** backend states, not
 physical-camera capture-to-browser times. Neither is an invented
 pass threshold.
+
+### Recovery, model provenance and repeatable evaluation
+
+The root `.gitignore` and original nano-model files were restored using their
+exact Git-history objects. Cameras 1/2 **run** `yolo26m.pt`; Camera 3 **runs**
+`yolo26m-obb.pt`. The older `yolo26n.pt` remains for historical two-camera
+evaluation bundles and experimental defaults. New evaluation runs cover all
+three active camera models and preserve existing v1 evidence. See the
+[recovery audit](docs/RECOVERY_AUDIT_2026-11-10.md) and
+[accuracy protocol](docs/ACCURACY_EVALUATION.md). Neither unit tests nor
+replayed video establish physical-camera or real-time campus accuracy.
 
 ### Basic project checks
 

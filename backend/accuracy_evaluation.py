@@ -18,16 +18,17 @@ from .parking_config import load_config
 from .space_matching import build_space_statuses, match_detections
 from .yolo_detection import (
     DETECTION_CONFIDENCE, INFERENCE_IMAGE_SIZE, INFERENCE_EVERY_FRAMES,
-    VEHICLE_CLASS_IDS, boxes_from_yolo_result,
+    VEHICLE_CLASS_IDS, boxes_from_yolo_result, detector_settings, detect_boxes,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# These are the two existing fixed-view sources used by backend/main.py.
-CAMERA_VIDEOS = {
+# Keep v1 evidence readable; newly prepared v2 runs cover all active cameras.
+LEGACY_CAMERA_VIDEOS = {
     "camera_1": "footage/stockvidsample2.mp4",
     "camera_2": "footage/parkinglotfootage1_1.mp4",
 }
+CAMERA_VIDEOS = {**LEGACY_CAMERA_VIDEOS, "camera_3": "footage/parkinglot3.mp4"}
 TRUTH_FIELDS = ("camera", "frame_index", "space_id", "ground_truth", "reviewer_notes")
 PREDICTION_FIELDS = ("camera", "frame_index", "space_id", "predicted_status")
 OCCUPANCY_STATES = frozenset(("AVAILABLE", "OCCUPIED"))
@@ -40,6 +41,16 @@ def file_sha256(path):
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def detector_evidence(camera, root):
+    """Capture the exact deployed model hash and per-camera inference options."""
+    settings = detector_settings(camera)
+    return {
+        "weights": settings["weights"],
+        "model_sha256": file_sha256(Path(root) / settings["weights"]),
+        "settings": dict(settings),
+    }
 
 
 def sample_frame_indices(total_frames, requested=8):
@@ -85,10 +96,11 @@ def prepare_evaluation(output_dir, requested=8, root=PROJECT_ROOT):
     if type(requested) is not int or not 1 <= requested <= 100:
         raise ValueError("Requested frames per camera must be in 1..100")
 
+    # Verify all model assets before creating a local evidence directory.
+    models = {camera: detector_evidence(camera, root) for camera in CAMERA_VIDEOS}
     manifest = {
-        "version": 1,
+        "version": 2,
         "inference_every_frames": INFERENCE_EVERY_FRAMES,
-        "model_sha256": file_sha256(root / "yolo26n.pt"),
         "cameras": {},
     }
     annotations = []
@@ -132,6 +144,7 @@ def prepare_evaluation(output_dir, requested=8, root=PROJECT_ROOT):
                         "reviewer_notes": "",
                     })
             manifest["cameras"][camera] = {
+                "detector": models[camera],
                 "video": relative_video,
                 "video_sha256": file_sha256(video_path),
                 "config_sha256": file_sha256(config_path),
@@ -157,21 +170,25 @@ def prepare_evaluation(output_dir, requested=8, root=PROJECT_ROOT):
 
 def _validated_manifest(folder, root):
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-    if not isinstance(manifest, dict) or manifest.get("version") != 1:
+    if not isinstance(manifest, dict) or manifest.get("version") not in (1, 2):
         raise ValueError("Unsupported evaluation manifest")
+    version = manifest["version"]
     if manifest.get("inference_every_frames") != INFERENCE_EVERY_FRAMES:
         raise ValueError("The inference cadence differs from the saved evaluation")
-    if manifest.get("model_sha256") != file_sha256(root / "yolo26n.pt"):
+    if version == 1 and manifest.get("model_sha256") != file_sha256(root / "yolo26n.pt"):
         raise ValueError("YOLO weights changed since the evaluation was prepared")
+    expected_videos = LEGACY_CAMERA_VIDEOS if version == 1 else CAMERA_VIDEOS
     cameras = manifest.get("cameras")
-    if not isinstance(cameras, dict) or set(cameras) != set(CAMERA_VIDEOS):
+    if not isinstance(cameras, dict) or set(cameras) != set(expected_videos):
         raise ValueError("Manifest camera list has changed")
 
     expected = set()
-    for camera, relative_video in CAMERA_VIDEOS.items():
+    for camera, relative_video in expected_videos.items():
         entry = cameras[camera]
         if not isinstance(entry, dict) or entry.get("video") != relative_video:
             raise ValueError("Manifest video does not match configured source")
+        if version == 2 and entry.get("detector") != detector_evidence(camera, root):
+            raise ValueError("YOLO weights or detector settings changed since annotation")
         if (
             file_sha256(root / relative_video) != entry.get("video_sha256")
             or file_sha256(root / "configs" / f"{camera}.json")
@@ -194,20 +211,27 @@ def _validated_manifest(folder, root):
     return manifest, expected
 
 
-def predict_evaluation(folder, root=PROJECT_ROOT, matching="center"):
-    """Write model results separately from human labels, without overwriting."""
+def predict_evaluation(folder, root=PROJECT_ROOT, matching=None):
+    """Save model predictions without overwriting human annotations or prior runs."""
     folder, root = Path(folder), Path(root)
     manifest, expected = _validated_manifest(folder, root)
     destination = folder / "predictions.csv"
     if destination.exists():
         raise FileExistsError("Predictions exist; do not overwrite evaluation evidence")
-
-    # Import lazily so scoring/testing never needs YOLO or a network download.
     from ultralytics import YOLO
-    weights = root / "yolo26n.pt"
-    model = YOLO(str(weights))
+
+    legacy = manifest["version"] == 1
+    videos = LEGACY_CAMERA_VIDEOS if legacy else CAMERA_VIDEOS
+    models = {}
     entries = []
-    for camera, relative_video in CAMERA_VIDEOS.items():
+    effective_matching = {}
+    for camera, relative_video in videos.items():
+        settings = detector_settings(camera)
+        weights = "yolo26n.pt" if legacy else settings["weights"]
+        if weights not in models:
+            models[weights] = YOLO(str(root / weights))
+        mode = matching or ("center" if legacy else settings["matching"])
+        effective_matching[camera] = mode
         config = load_config(root / "configs" / f"{camera}.json")
         contours = _contours(config)
         video = cv2.VideoCapture(str(root / relative_video))
@@ -216,13 +240,18 @@ def predict_evaluation(folder, root=PROJECT_ROOT, matching="center"):
                 raise ValueError(f"Cannot open {relative_video}")
             for index in manifest["cameras"][camera]["frame_indices"]:
                 raw = _frame(video, index, relative_video)
-                result = model(
-                    raw, classes=list(VEHICLE_CLASS_IDS),
-                    conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
-                    device="cpu", verbose=False,
-                )[0]
-                boxes = boxes_from_yolo_result(result)
-                _, occupied = match_detections(boxes, contours, camera=camera, mode=matching)
+                if legacy:
+                    result = models[weights](
+                        raw, classes=list(VEHICLE_CLASS_IDS),
+                        conf=DETECTION_CONFIDENCE, imgsz=INFERENCE_IMAGE_SIZE,
+                        device="cpu", verbose=False,
+                    )[0]
+                    boxes = boxes_from_yolo_result(result)
+                else:
+                    boxes = detect_boxes(models[weights], raw, camera, device="cpu")
+                _, occupied = match_detections(
+                    boxes, contours, camera=camera, mode=mode,
+                )
                 statuses = build_space_statuses(config["spaces"], occupied)
                 for space in statuses:
                     entries.append({
@@ -233,13 +262,21 @@ def predict_evaluation(folder, root=PROJECT_ROOT, matching="center"):
                     })
         finally:
             video.release()
+
     if {(x["camera"], x["frame_index"], x["space_id"]) for x in entries} != expected:
         raise ValueError("Prediction set does not cover every sampled space")
-
     with destination.open("x", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=PREDICTION_FIELDS)
         writer.writeheader()
         writer.writerows(entries)
+    (folder / "prediction_settings.json").write_text(
+        json.dumps({
+            "manifest_version": manifest["version"],
+            "matching_by_camera": effective_matching,
+            "source": "legacy_nano_model" if legacy else "active_camera_models",
+            "predictions_sha256": file_sha256(destination),
+        }, indent=2) + "\n", encoding="utf-8",
+    )
     return len(entries)
 
 
@@ -279,7 +316,7 @@ def _metric(rows):
 def score_evaluation(folder, root=PROJECT_ROOT):
     """Return honest metrics ONLY after complete human labels and predictions."""
     folder, root = Path(folder), Path(root)
-    _, expected = _validated_manifest(folder, root)
+    manifest, expected = _validated_manifest(folder, root)
     truth = _read_rows(
         folder / "ground_truth.csv", TRUTH_FIELDS, expected, "ground_truth"
     )
@@ -298,6 +335,30 @@ def score_evaluation(folder, root=PROJECT_ROOT):
     if any(label not in OCCUPANCY_STATES for label in predicted.values()):
         raise ValueError("Model predictions must be AVAILABLE or OCCUPIED")
 
+    prediction_provenance = None
+    if manifest["version"] == 2:
+        metadata_file = folder / "prediction_settings.json"
+        if not metadata_file.is_file():
+            raise ValueError("Missing prediction_settings.json for version-2 evaluation")
+        metadata = json.loads(metadata_file.read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict):
+            raise ValueError("Invalid, changed or untraceable prediction settings")
+        modes = metadata.get("matching_by_camera")
+        if (metadata.get("manifest_version") != 2
+                or metadata.get("source") != "active_camera_models"
+                or not isinstance(modes, dict)
+                or set(modes) != set(manifest["cameras"])
+                or any(mode not in ("center", "overlap") for mode in modes.values())
+                or metadata.get("predictions_sha256") != file_sha256(folder / "predictions.csv")):
+            raise ValueError("Invalid, changed or untraceable prediction settings")
+        prediction_provenance = {
+            "matching_by_camera": modes,
+            "matches_live_matching": all(
+                modes[camera] == detector_settings(camera)["matching"]
+                for camera in manifest["cameras"]
+            ),
+        }
+
     scored = [
         (key, label, predicted[key]) for key, label in truth.items()
         if label != UNVERIFIABLE
@@ -306,7 +367,7 @@ def score_evaluation(folder, root=PROJECT_ROOT):
         raise ValueError("All annotations are unverifiable; cannot compute accuracy")
     per_camera = {}
     per_space = {}
-    for camera in CAMERA_VIDEOS:
+    for camera in manifest['cameras']:
         items = [(truth, pred) for (cam, _, _), truth, pred in scored if cam == camera]
         per_camera[camera] = _metric(items)
     for camera, frame, space in expected:
@@ -319,6 +380,8 @@ def score_evaluation(folder, root=PROJECT_ROOT):
     }
     return {
         "method": "manually_verified_configured_space_classification",
+        "manifest_version": manifest["version"],
+        "prediction_provenance": prediction_provenance,
         "states": ["AVAILABLE", "OCCUPIED"],
         "sampled_space_frame_pairs": len(expected),
         "excluded_unverifiable": len(expected) - len(scored),

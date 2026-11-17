@@ -259,3 +259,74 @@ class OccupancyRepository:
                     }
                     for hour, total, occupied in cursor.fetchall()
                 ]
+
+    def forecast_hourly_profiles(self, lot_id, *, as_of_utc, lookback_days=56,
+                                 required_spaces):
+        """Read complete snapshots, then day-balance hourly occupancy.
+
+        A snapshot must contain exactly one status per configured space.
+        Daily buckets average multiple same-hour snapshots *within that day*,
+        preventing frequent sampling on one day from counting as multiple
+        independent weekdays. This query performs no writes or migrations.
+
+        Replay observation timestamps are not recording-time evidence. Only
+        the operator-controlled forecast gate in status_api can expose these
+        rows as verified historical forecasts after provenance review.
+        """
+        from datetime import timedelta
+
+        lot_id = _identifier(lot_id, "lot_id")
+        as_of_utc = _timestamp(as_of_utc)
+        if type(lookback_days) is not int or not 1 <= lookback_days <= 90:
+            raise ValueError("lookback_days must be 1 through 90")
+        if type(required_spaces) is not int or not 1 <= required_spaces <= 10000:
+            raise ValueError("required_spaces must be a positive bounded integer")
+
+        start = as_of_utc - timedelta(days=lookback_days)
+        with psycopg.connect(self.dsn) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    WITH snapshots AS (
+                        SELECT observed_at,
+                               observed_at AT TIME ZONE 'America/New_York'
+                                   AS local_time,
+                               COUNT(*)::INT AS row_count,
+                               COUNT(DISTINCT space_id)::INT AS unique_spaces,
+                               COUNT(*) FILTER (
+                                   WHERE status = 'OCCUPIED'
+                               )::INT AS occupied_count
+                        FROM occupancy_record
+                        WHERE lot_id = %s
+                          AND observed_at >= %s
+                          AND observed_at <= %s
+                        GROUP BY observed_at
+                    ), daily AS (
+                        SELECT local_time::DATE AS local_date,
+                               (EXTRACT(ISODOW FROM local_time)::INT - 1)
+                                   AS weekday,
+                               EXTRACT(HOUR FROM local_time)::INT AS hour,
+                               AVG(
+                                   occupied_count::DOUBLE PRECISION / row_count
+                               )::DOUBLE PRECISION AS occupied_share,
+                               COUNT(*)::INT AS snapshots
+                        FROM snapshots
+                        WHERE row_count = %s AND unique_spaces = %s
+                        GROUP BY 1, 2, 3
+                    )
+                    SELECT local_date, weekday, hour, occupied_share, snapshots
+                    FROM daily
+                    ORDER BY local_date, hour
+                    """,
+                    (lot_id, start, as_of_utc, required_spaces, required_spaces),
+                )
+                return [
+                    {
+                        "local_date": local_date,
+                        "weekday": weekday,
+                        "hour": hour,
+                        "occupied_share": share,
+                        "snapshots": snapshots,
+                    }
+                    for local_date, weekday, hour, share, snapshots in cursor.fetchall()
+                ]

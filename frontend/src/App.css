@@ -1366,3 +1366,84 @@ select,
     transition-duration: 0.01ms !important;
   }
 }
+
+@media (min-width: 801px) {
+  .welcome-header-top {
+    align-items: flex-start;
+    max-width: none;
+    margin: 0;
+  }
+
+  .welcome-title {
+    line-height: 1;
+  }
+
+  .welcome-logo {
+    width: auto;
+    height: 80px;
+    max-width: none;
+  }
+
+  .welcome-lots {
+    margin: 0;
+    padding: 40px 32px 50px;
+  }
+
+  .lot-card {
+    height: 120px;
+    min-height: 0;
+  }
+
+  .dashboard-header {
+    padding: 36px 32px;
+  }
+
+  .dashboard-header-top {
+    max-width: none;
+    margin: 0;
+  }
+
+  .dashboard-title {
+    font-size: 34px;
+    line-height: normal;
+  }
+
+  .dashboard-body {
+    width: auto;
+    max-width: 900px;
+    margin: 0;
+    padding: 32px;
+  }
+
+  .dashboard-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    min-width: 120px;
+    padding: 18px 22px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 72px));
+  }
+
+  .dashboard-space {
+    width: 72px;
+    min-height: 0;
+    height: 72px;
+    padding: 0;
+  }
+
+  .history-body {
+    width: auto;
+    margin: 0;
+    padding: 32px;
+  }
+
+  .forecast-body {
+    padding: 26px;
+  }
+}

@@ -97,7 +97,7 @@ function Welcome() {
     }
 
     refresh()
-    const interval = setInterval(refresh, 5000)
+    const interval = setInterval(refresh, 2000)
     return () => {
       active = false
       clearInterval(interval)

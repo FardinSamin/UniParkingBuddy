@@ -18,6 +18,8 @@ export default function HistoricalTrends() {
   const [history, setHistory] = useState<SpaceHistoryData | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [trendsRetry, setTrendsRetry] = useState(0)
+  const [historyRetry, setHistoryRetry] = useState(0)
 
   useEffect(() => {
     if (!validLot || !lotId) return
@@ -33,10 +35,10 @@ export default function HistoricalTrends() {
       .catch(() => {
         if (!active) return
         setLoading(false)
-        setError('Historical records are unavailable. Check PostgreSQL and the backend.')
+        setError('Historical data is currently unavailable. Please try again.')
       })
     return () => { active = false }
-  }, [lotId, validLot])
+  }, [lotId, validLot, trendsRetry])
 
   useEffect(() => {
     if (!validLot || !lotId || !spaceId) return
@@ -51,11 +53,11 @@ export default function HistoricalTrends() {
       .catch(() => {
         if (!active) return
         setHistory(null)
-        setHistoryError('This space’s historical records are unavailable.')
+        setHistoryError('Historical data is currently unavailable. Please try again.')
         setHistoryLoading(false)
       })
     return () => { active = false }
-  }, [lotId, validLot, spaceId])
+  }, [lotId, validLot, spaceId, historyRetry])
 
   function changeSpace(id: string) {
     setSpaceId(id)
@@ -72,7 +74,7 @@ export default function HistoricalTrends() {
             <p className="dashboard-eyebrow">{validLot ? lotName : 'Unknown lot'}</p>
             <h1 className="dashboard-title">Historical occupancy</h1>
           </div>
-          <button className="dashboard-back-btn" onClick={() => navigate('/')}>
+          <button className="dashboard-back-btn" type="button" onClick={() => navigate('/')}>
             ← All lots
           </button>
         </div>
@@ -89,7 +91,20 @@ export default function HistoricalTrends() {
         ) : loading ? (
           <p role="status">Loading historical observations...</p>
         ) : error ? (
-          <p className="error" role="alert">{error}</p>
+          <div className="error-panel">
+            <p role="alert">{error}</p>
+            <button
+              className="status-retry"
+              type="button"
+              onClick={() => {
+                setLoading(true)
+                setError(null)
+                setTrendsRetry((value) => value + 1)
+              }}
+            >
+              Retry historical data
+            </button>
+          </div>
         ) : trends ? (
           <>
             <section className="history-section" aria-labelledby="hourly-heading">
@@ -105,14 +120,20 @@ export default function HistoricalTrends() {
                     {HOURS.map((hour) => {
                       const sample = trends.hourly.find((row) => row.hour_utc === hour)
                       return (
-                        <div className="history-hour" key={hour}>
+                        <div
+                          className="history-hour"
+                          key={hour}
+                          role="img"
+                          aria-label={sample
+                            ? `${hour}:00 UTC, ${sample.occupied_percent}% occupied among ${sample.observations} observations`
+                            : `${hour}:00 UTC, no observations`}
+                        >
                           <div className="history-column">
                             {sample ? (
                               <div
                                 className="history-bar"
                                 style={{ height: `${sample.occupied_percent}%` }}
                                 title={`${hour}:00 UTC: ${sample.occupied_percent}% occupied among ${sample.observations} observations`}
-                                aria-label={`${hour}:00 UTC, ${sample.occupied_percent}% occupied among ${sample.observations} observations`}
                               />
                             ) : (
                               <span className="history-no-sample" title="No observations">—</span>
@@ -161,17 +182,32 @@ export default function HistoricalTrends() {
                   {historyLoading ? (
                     <p role="status">Loading space history...</p>
                   ) : historyError ? (
-                    <p role="alert" className="error">{historyError}</p>
+                    <div className="error-panel">
+                      <p role="alert" className="error">{historyError}</p>
+                      <button
+                        type="button"
+                        className="status-retry"
+                        onClick={() => {
+                          setHistoryLoading(true)
+                          setHistoryError(null)
+                          setHistoryRetry((value) => value + 1)
+                        }}
+                      >
+                        Retry space history
+                      </button>
+                    </div>
                   ) : history && history.space_id === spaceId ? (
                     history.has_history ? (
-                      <div className="history-record-list">
+                      <ol className="history-record-list">
                         {history.records.map((record, index) => (
-                          <div key={`${record.observed_at}-${index}`} className="history-record">
-                            <span>{new Date(record.observed_at).toLocaleString()}</span>
+                          <li key={`${record.observed_at}-${index}`} className="history-record">
+                            <time dateTime={record.observed_at}>
+                              {new Date(record.observed_at).toLocaleString()}
+                            </time>
                             <strong>{record.status === 'OCCUPIED' ? 'Occupied' : 'Available'}</strong>
-                          </div>
+                          </li>
                         ))}
-                      </div>
+                      </ol>
                     ) : (
                       <p>No historical observations have been stored for this space yet.</p>
                     )

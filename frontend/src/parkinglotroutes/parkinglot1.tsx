@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import '../App.css'
-import { fetchParkingStatus, type ParkingSpaceStatus } from '../parkingStatus'
+import { useParkingStatus } from '../useParkingStatus.ts'
+import ParkingFreshness from '../ParkingFreshness.tsx'
 import LotDiagram from '../lotDiagram.tsx'
 import type { DiagramLayout } from '../diagramLayout.ts'
 
 function ParkingLot1() {
-  const [spaces, setSpaces] = useState<ParkingSpaceStatus[]>([])
   const [layout, setLayout] = useState<DiagramLayout | null>(null)
   const [layoutError, setLayoutError] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [carCount, setCarCount] = useState(0)
-  const [outsideCount, setOutsideCount] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { state, data, lastFetchedAt, retry } = useParkingStatus('camera_1')
+  const spaces = data?.parking_spaces ?? []
+  const loading = state === 'loading'
   const navigate = useNavigate()
   const showDebug = new URLSearchParams(window.location.search).has('debug')
 
@@ -26,48 +25,12 @@ function ParkingLot1() {
       .catch(() => setLayoutError(true))
   }, [])
 
-  useEffect(() => {
-    let active = true
-    let requestInProgress = false
-
-    const fetchSpaces = () => {
-      if (requestInProgress) return
-
-      requestInProgress = true
-      fetchParkingStatus('camera_1')
-        .then((data) => {
-          if (!active) return
-          setSpaces(data.parking_spaces)
-          setCarCount(data.cars_detected)
-          setOutsideCount(data.vehicles_outside_spaces ?? null)
-          setError(null)
-          setLoading(false)
-        })
-        .catch(() => {
-          if (!active) return
-          setSpaces([])
-          setError('Current parking status is unavailable. Check the backend and space configuration.')
-          setLoading(false)
-        })
-        .finally(() => {
-          requestInProgress = false
-        })
-    }
-
-    fetchSpaces()
-    const interval = setInterval(fetchSpaces, 1000)
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [])
-
   const occupiedCount = spaces.filter((s) => s.occupied).length
   const openCount = spaces.length - occupiedCount
 
   return (
     <div className="dashboard-page">
-      <div className="dashboard-header">
+      <header className="dashboard-header">
         <div className="dashboard-header-top">
           <div>
             <p className="dashboard-eyebrow">Lot 1</p>
@@ -91,29 +54,34 @@ function ParkingLot1() {
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="dashboard-body">
-        {loading ? (
-          <p role="status">Checking parking availability...</p>
-        ) : (
+      <main className="dashboard-body">
+        {loading && <p role="status">Checking parking availability...</p>}
+        {!loading && (
           <>
-            {error && <p className="error" role="alert">{error}</p>}
-
-            {!error && (
+            <ParkingFreshness
+              state={state}
+              lastFetchedAt={lastFetchedAt}
+              observedAt={data?.observed_at}
+              onRetry={retry}
+            />
+            {data && (
               <div className="dashboard-stats">
-                  {showDebug && (
-                  <div className="stat-card">
-                    <p className="stat-label">Vehicles detected</p>
-                    <p className="stat-value">{carCount}</p>
-                  </div>
-                )}
+                {showDebug && (
+                  <>
+                    <div className="stat-card">
+                      <p className="stat-label">Vehicles detected</p>
+                      <p className="stat-value">{data.cars_detected}</p>
+                    </div>
 
-                {showDebug && outsideCount !== null && (
-                  <div className="stat-card">
-                    <p className="stat-label">Outside marked spaces</p>
-                    <p className="stat-value">{outsideCount}</p>
-                  </div>
+                    {data.vehicles_outside_spaces !== undefined && (
+                      <div className="stat-card">
+                        <p className="stat-label">Outside marked spaces</p>
+                        <p className="stat-value">{data.vehicles_outside_spaces}</p>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <div className="stat-card">
@@ -135,22 +103,24 @@ function ParkingLot1() {
 
             {layoutError && <p className="error">Could not load the lot layout</p>}
 
-            {layout && <LotDiagram layout={layout} statuses={spaces} />}
+            {layout && data && <LotDiagram layout={layout} statuses={spaces} />}
 
-            <div className="dashboard-legend">
-              <div className="legend-item">
-                <span className="legend-swatch legend-open"></span>
-                <span>Open</span>
-              </div>
+            {data && (
+              <div className="dashboard-legend" aria-label="Parking-space status key">
+                <div className="legend-item">
+                  <span className="legend-swatch legend-open" aria-hidden="true"></span>
+                  <span>Available</span>
+                </div>
 
-              <div className="legend-item">
-                <span className="legend-swatch legend-occupied"></span>
-                <span>Occupied</span>
+                <div className="legend-item">
+                  <span className="legend-swatch legend-occupied" aria-hidden="true"></span>
+                  <span>Occupied</span>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
-      </div>
+      </main>
     </div>
   )
 }

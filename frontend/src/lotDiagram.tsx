@@ -32,14 +32,15 @@ function LotDiagram({ layout, statuses }: Props) {
   const strokeWidth = Math.max(1.2, layout.width / 450)
   const fontSize = layout.labelSize ?? Math.round(layout.width / 56)
   const stalls = buildStalls(layout)
-  // Unmapped spaces still contribute to API-based counts; no locations are guessed.
+  const availableCount = statuses.filter((space) => !space.occupied).length
+  const occupiedCount = statuses.filter((space) => space.occupied).length
 
   return (
     <svg
       viewBox={`0 0 ${layout.width} ${layout.height}`}
       className="lot-diagram"
-      role="img"
-      aria-label="Parking lot diagram"
+      role="group"
+      aria-label={`Parking lot diagram. ${availableCount} available and ${occupiedCount} occupied spaces shown.`}
     >
       {layout.image ? (
         <image href={layout.image} width={layout.width} height={layout.height} />
@@ -56,7 +57,14 @@ function LotDiagram({ layout, statuses }: Props) {
         const [cx, cy] = centroid(stall.points)
 
         return (
-          <g key={stall.id} className={`diagram-stall ${!known ? 'unknown' : occupied ? 'occupied' : 'open'}`} data-space-id={stall.id} data-status={!known ? 'UNKNOWN' : occupied ? 'OCCUPIED' : 'AVAILABLE'}>
+          <g
+            key={stall.id}
+            className={`diagram-stall ${!known ? 'unknown' : occupied ? 'occupied' : 'open'}`}
+            data-space-id={stall.id}
+            data-status={!known ? 'UNKNOWN' : occupied ? 'OCCUPIED' : 'AVAILABLE'}
+            role="img"
+            aria-label={`Space ${stall.id}: ${!known ? 'status unavailable' : occupied ? 'Occupied' : 'Available'}`}
+          >
             <title>{`Space ${stall.id}: ${!known ? 'status unavailable' : occupied ? 'Occupied' : 'Open'}`}</title>
             <polygon
               points={inner.map(([x, y]) => `${x},${y}`).join(' ')}

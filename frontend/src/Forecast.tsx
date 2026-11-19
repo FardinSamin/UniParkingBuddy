@@ -39,9 +39,6 @@ export default function Forecast() {
 
   useEffect(() => {
     let active = true
-    setResult(null)
-    setError(null)
-    setLoading(true)
     fetchForecast(submitted.at, submitted.mode)
       .then((response) => {
         if (!active) return
@@ -67,6 +64,9 @@ export default function Forecast() {
   const best = ranked[0]
 
   function submit(at: string, selectedMode: ForecastMode) {
+    setResult(null)
+    setError(null)
+    setLoading(true)
     setSubmitted({ at, mode: selectedMode })
   }
 
@@ -161,7 +161,12 @@ export default function Forecast() {
         {loading ? (
           <p role="status" className="forecast-note">Calculating the selected scenario…</p>
         ) : error ? (
-          <p role="alert" className="error">{error}</p>
+          <div className="error-panel">
+            <p role="alert">{error}</p>
+            <button type="button" className="status-retry" onClick={() => submit(submitted.at, submitted.mode)}>
+              Retry forecast
+            </button>
+          </div>
         ) : result ? (
           <section className="forecast-results" aria-labelledby="forecast-results-heading">
             <h2 id="forecast-results-heading">
@@ -207,7 +212,8 @@ export default function Forecast() {
                   {lot.estimated_open_percent !== null && (
                     <div className="forecast-progress" aria-label={
                       lot.display_label + ': ' + lot.estimated_open_percent + '% estimated open'
-                    }>
+                    } role="progressbar" aria-valuemin={0} aria-valuemax={100}
+                      aria-valuenow={lot.estimated_open_percent}>
                       <div style={{ width: lot.estimated_open_percent + '%' }} />
                     </div>
                   )}

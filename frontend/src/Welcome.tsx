@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import './App.css'
 import uncpLogo from '../uncp-logo.png'
 import { fetchMonitoredLots, type MonitoredLot } from './monitoredLots.ts'
+import { FreshnessText } from './ParkingFreshness.tsx'
 
 interface LotCard {
   id: string
@@ -28,15 +29,15 @@ const lotCards: LotCard[] = [
 type LotsState =
   | { state: 'loading' }
   | { state: 'unavailable' }
-  | { state: 'ready'; lots: MonitoredLot[] }
+  | { state: 'ready' | 'stale'; lots: MonitoredLot[] }
 
 type UserPos = { lat: number; lng: number } | null
 type LotSortOption = 'default' | 'nearest' | 'commuter' | 'residential'
 
 function occupancyBadge(open: number, total: number) {
-  if (open === 0) return { label: 'FULL', bg: '#F5E0E0', color: '#C0392B' }
-  if (open / total < 0.25) return { label: 'LIMITED', bg: '#FFF3D6', color: '#B8860B' }
-  return { label: 'OPEN', bg: '#DCF5E4', color: '#1A8A4A' }
+  if (open === 0) return { label: 'FULL', className: 'full' }
+  if (open / total < 0.25) return { label: 'LIMITED', className: 'limited' }
+  return { label: 'OPEN', className: 'open' }
 }
 
 // Haversine distance in miles
@@ -59,6 +60,8 @@ function formatDistance(miles: number) {
 function Welcome() {
   const navigate = useNavigate()
   const [monitoring, setMonitoring] = useState<LotsState>({ state: 'loading' })
+  const [lastCheckedAt, setLastCheckedAt] = useState<string | null>(null)
+  const [retryVersion, setRetryVersion] = useState(0)
   const [userPos, setUserPos] = useState<UserPos>(null)
   const [sortBy, setSortBy] = useState<LotSortOption>('default')
 
@@ -82,10 +85,13 @@ function Welcome() {
       fetchMonitoredLots()
         .then((lots) => {
           if (active) setMonitoring({ state: 'ready', lots })
+          if (active) setLastCheckedAt(new Date().toISOString())
         })
         .catch(() => {
-          // A broken backend is unavailable, not FULL or zero open spaces.
-          if (active) setMonitoring({ state: 'unavailable' })
+          if (!active) return
+          setMonitoring((previous) => previous.state === 'ready' || previous.state === 'stale'
+            ? { state: 'stale', lots: previous.lots }
+            : { state: 'unavailable' })
         })
         .finally(() => { requestInProgress = false })
     }
@@ -96,7 +102,7 @@ function Welcome() {
       active = false
       clearInterval(interval)
     }
-  }, [])
+  }, [retryVersion])
 
   const orderedLotCards = [...lotCards].sort((a, b) => {
     if (sortBy === 'commuter' || sortBy === 'residential') {
@@ -114,7 +120,7 @@ function Welcome() {
 
   return (
     <div className="welcome-page">
-      <div className="welcome-header">
+      <header className="welcome-header">
         <div className="welcome-header-top">
           <div>
             <p className="welcome-eyebrow">Welcome UNCP Brave</p>
@@ -125,7 +131,7 @@ function Welcome() {
           </div>
           <img src={uncpLogo} alt="UNCP logo" className="welcome-logo" />
         </div>
-      </div>
+      </header>
 
       <main className="welcome-lots">
         <div className="welcome-sort">
@@ -142,8 +148,25 @@ function Welcome() {
             <option value="residential">Residential lots first</option>
           </select>
         </div>
+        <div className="home-status">
+          {monitoring.state === 'loading' && <p role="status">Checking monitored parking lots...</p>}
+          {monitoring.state === 'unavailable' && (
+            <p>Parking availability could not be reached. Counts are unavailable, not zero.</p>
+          )}
+          {monitoring.state === 'stale' && (
+            <p>Could not refresh parking availability. Showing the last received response.</p>
+          )}
+          {lastCheckedAt && (
+            <FreshnessText lastFetchedAt={lastCheckedAt} />
+          )}
+          {(monitoring.state === 'unavailable' || monitoring.state === 'stale') && (
+            <button type="button" className="status-retry" onClick={() => setRetryVersion((n) => n + 1)}>
+              Retry lot status
+            </button>
+          )}
+        </div>
         {orderedLotCards.map((card) => {
-          const apiLot = monitoring.state === 'ready'
+          const apiLot = monitoring.state === 'ready' || monitoring.state === 'stale'
             ? monitoring.lots.find((lot) =>
                 lot.lot_id === card.id && lot.camera === card.camera,
               )
@@ -157,27 +180,29 @@ function Welcome() {
             : null
 
           const badge = !card.camera
-            ? { label: 'COMING SOON', bg: '#E9E6DF', color: '#5A5A56' }
+            ? { label: 'NOT MONITORED', className: 'not-monitored' }
             : monitoring.state === 'loading'
-              ? { label: 'LOADING', bg: '#FFF3D6', color: '#B8860B' }
+              ? { label: 'LOADING', className: 'loading' }
               : monitoring.state === 'unavailable'
-                ? { label: 'UNAVAILABLE', bg: '#E9E6DF', color: '#ff0000' }
+                ? { label: 'UNAVAILABLE', className: 'unavailable' }
                 : !apiLot
-                  ? { label: 'CURRENTLY UNAVAILABLE', bg: '#E9E6DF', color: '#ff0000' }
-                  : open !== null && open !== undefined && total !== null && total !== undefined
-                    ? occupancyBadge(open, total)
-                    : { label: 'UNAVAILABLE', bg: '#E9E6DF', color: '#ff0000' }
+                  ? { label: 'NOT MONITORED', className: 'not-monitored' }
+                  : monitoring.state === 'stale' && apiLot.has_current_data
+                    ? { label: 'STALE', className: 'stale' }
+                    : open !== null && open !== undefined && total !== null && total !== undefined
+                      ? occupancyBadge(open, total)
+                      : { label: 'UNAVAILABLE', className: 'unavailable' }
 
           const count = !card.camera
-            ? 'Monitoring not available yet'
+            ? 'This lot is not monitored'
             : monitoring.state === 'loading'
               ? 'Checking availability...'
               : monitoring.state === 'unavailable'
-                ? 'Cannot reach the monitoring service'
+                ? 'Availability is unavailable'
                 : !apiLot
                   ? 'This lot is not currently monitored'
                   : open !== null && open !== undefined && total !== null && total !== undefined
-                    ? `${open} of ${total} open`
+                    ? `${monitoring.state === 'stale' ? 'Last received: ' : ''}${open} of ${total} available`
                     : 'Current status unavailable'
 
           return (
@@ -186,16 +211,16 @@ function Welcome() {
               className="lot-card"
               style={{ background: card.gradient }}
             >
-              <div className="lot-card-bg" style={{ backgroundImage: `url(${card.image})` }} />
-              <div className="lot-card-overlay" />
+              <div className="lot-card-bg" style={{ backgroundImage: `url(${card.image})` }} aria-hidden="true" />
+              <div className="lot-card-overlay" aria-hidden="true" />
               <button
                 type="button"
                 className="lot-card-open"
                 disabled={disabled}
                 onClick={() => navigate(card.path)}
-                aria-label={`View ${apiLot?.display_label ?? card.name}`}
+                aria-label={`View ${apiLot?.display_label ?? card.name}. ${count}. Status: ${badge.label}.`}
               >
-                <span className="lot-card-status" style={{ background: badge.bg, color: badge.color }}>
+                <span className={`lot-card-status lot-card-status-${badge.className}`}>
                   {badge.label}
                 </span>
                 <span className="lot-card-type">{card.type}</span>

@@ -85,7 +85,7 @@ function ParkingLot1() {
                 )}
 
                 <div className="stat-card">
-                  <p className="stat-label">Open now</p>
+                  <p className="stat-label">Available now</p>
                   <p className="stat-value stat-open">{openCount}</p>
                 </div>
 

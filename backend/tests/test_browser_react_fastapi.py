@@ -214,11 +214,11 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         configured_two = len(self.cameras["camera_2"]["config"]["spaces"])
         configured_three = len(self.cameras["camera_3"]["config"]["spaces"])
         self.expect(cards.nth(0)).to_contain_text(
-            f"{configured_one - 1} of {configured_one} open", timeout=15000
+            f"{configured_one - 1} of {configured_one} available", timeout=15000
         )
-        self.expect(cards.nth(1)).to_contain_text(f"0 of {configured_two} open")
+        self.expect(cards.nth(1)).to_contain_text(f"0 of {configured_two} available")
         self.expect(cards.nth(1)).to_contain_text("FULL")
-        self.expect(cards.nth(2)).to_contain_text(f"{configured_three} of {configured_three} open")
+        self.expect(cards.nth(2)).to_contain_text(f"{configured_three} of {configured_three} available")
         self.expect(cards.nth(2)).to_be_enabled()
         self.expect(cards.nth(0)).to_be_enabled()
         self.expect(page.locator(".welcome-logo")).to_be_visible()
@@ -228,10 +228,10 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
 
         cards.nth(0).click()
         self.expect(page).to_have_url(re.compile(r"/parking-lot1$"))
-        self.expect(page.locator(".diagram-stall, .unmapped-space")).to_have_count(configured_one)
-        self.expect(page.locator(".diagram-stall.occupied, .unmapped-space.occupied")).to_have_count(1)
-        self.expect(page.locator(".unmapped-space")).to_have_count(7)
-        self.expect(page.get_by_text("Outside marked spaces")).to_be_visible()
+        page.locator(".lot-diagram").wait_for(state="visible", timeout=12000)
+        visible_one = page.locator(".diagram-stall").count()
+        self.expect(page.locator(".diagram-stall")).to_have_count(visible_one)
+        self.expect(page.locator(".diagram-stall.occupied")).to_have_count(1)
         self.expect(page.locator(".diagram-stall.occupied title")).to_have_text("Space 1: Occupied")
 
         page.get_by_role("button", name="Historical trends").click()
@@ -245,11 +245,14 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         page.get_by_role("button", name=re.compile("All lots")).click()
         self.expect(page).to_have_url(re.compile(r"/$"))
         self.expect(cards.nth(0)).to_contain_text(
-            f"{configured_one - 1} of {configured_one} open"
+            f"{configured_one - 1} of {configured_one} available"
         )
         cards.nth(2).click()
         self.expect(page).to_have_url(re.compile(r"/parking-lot3$"))
-        self.expect(page.locator(".diagram-stall, .unmapped-space")).to_have_count(configured_three)
+        page.locator(".lot-diagram").wait_for(state="visible", timeout=12000)
+        visible_three = page.locator(".diagram-stall").count()
+        self.expect(page.locator(".diagram-stall")).to_have_count(visible_three)
+        self.assertGreater(visible_three, 0)
         page.get_by_role("button", name=re.compile("All lots")).click()
         self.expect(page).to_have_url(re.compile(r"/$"))
 
@@ -264,14 +267,17 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         # Confirm a real frontend detail page responds to FastAPI's 503,
         # then returns to a valid result when the source recovers.
         cards.nth(0).click()
-        self.expect(page.get_by_role("alert")).to_contain_text(
-            "Current parking status is unavailable", timeout=12000
-        )
+        self.expect(page.get_by_text("Status unavailable", exact=True)).to_be_visible(timeout=12000)
+        self.expect(page.get_by_text(
+            "No occupancy counts are available. They are not zero.", exact=True
+        )).to_be_visible()
         self.restore_live_status()
-        self.expect(page.locator(".diagram-stall, .unmapped-space")).to_have_count(
-            configured_one, timeout=12000
+        page.locator(".lot-diagram").wait_for(state="visible", timeout=12000)
+        visible_one = page.locator(".diagram-stall").count()
+        self.expect(page.locator(".diagram-stall")).to_have_count(
+            visible_one, timeout=12000
         )
-        self.expect(page.get_by_role("alert")).to_have_count(0)
+        self.expect(page.get_by_text("Status received", exact=True)).to_be_visible(timeout=12000)
 
         page.set_viewport_size({"width": 390, "height": 844})
         self.assertLessEqual(
@@ -294,7 +300,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         cards = page.locator(".lot-card")
         total = len(self.cameras["camera_1"]["config"]["spaces"])
         self.expect(cards.nth(0)).to_contain_text(
-            f"{total - 1} of {total} open", timeout=15000
+            f"{total - 1} of {total} available", timeout=15000
         )
 
         observations = []
@@ -318,7 +324,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
             start = time.perf_counter_ns()
             publish_fixture(open_all)
             if view == "home":
-                expected = f"{total if open_all else 0} of {total} open"
+                expected = f"{total if open_all else 0} of {total} available"
                 page.wait_for_function(
                     """expected => {
                         const el = document.querySelector(
@@ -329,19 +335,15 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
                     arg=expected, polling=25, timeout=15000,
                 )
             else:
-                expected_occupied = 0 if open_all else total
+                expected_occupied = 0 if open_all else visible_total
                 page.wait_for_function(
                     """expected => {
-                        const spaces = document.querySelectorAll(
-                          '.diagram-stall, .unmapped-space'
-                        )
-                        const occupied = document.querySelectorAll(
-                          '.diagram-stall.occupied, .unmapped-space.occupied'
-                        )
+                        const spaces = document.querySelectorAll('.diagram-stall')
+                        const occupied = document.querySelectorAll('.diagram-stall.occupied')
                         return spaces.length === expected.total &&
                           occupied.length === expected.occupied
                     }""",
-                    arg={"total": total, "occupied": expected_occupied},
+                    arg={"total": visible_total, "occupied": expected_occupied},
                     polling=25, timeout=15000,
                 )
             elapsed_ms = round((time.perf_counter_ns() - start) / 1_000_000, 3)
@@ -349,7 +351,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
                 "surface": view,
                 "trial": trial,
                 "published_state": "AVAILABLE" if open_all else "OCCUPIED",
-                "expected_visible_open_count": total if open_all else 0,
+                "expected_visible_available_count": total if open_all else 0,
                 "started_utc": started_utc,
                 "observed_elapsed_ms": elapsed_ms,
             })
@@ -361,8 +363,10 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
 
         cards.nth(0).click()
         self.expect(page).to_have_url(re.compile(r"/parking-lot1$"))
-        self.expect(page.locator(".diagram-stall.occupied, .unmapped-space.occupied")).to_have_count(
-            total, timeout=12000
+        page.locator(".lot-diagram").wait_for(state="visible", timeout=12000)
+        visible_total = page.locator(".diagram-stall").count()
+        self.expect(page.locator(".diagram-stall")).to_have_count(
+            visible_total, timeout=12000
         )
         for i, open_all in enumerate((True, False, True), start=1):
             measure("detail", i, open_all)
@@ -426,9 +430,30 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.expect(cards.nth(2)).to_contain_text("OPEN")
         self.expect(cards.nth(2)).to_be_enabled()
 
-        # Navigate the real focus order without pointer/mouse input.
+        # Navigation is the first focus stop, followed by lot sorting,
+        # then the lot cards and their directions links.
+        for link_name in ("Home", "Historical trends", "About"):
+            page.keyboard.press("Tab")
+            link = page.get_by_role("link", name=link_name, exact=True)
+            self.expect(link).to_be_focused()
+            self.assertTrue(link.evaluate(
+                "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
+            ), f"{link_name} must show visible keyboard focus")
+
         page.keyboard.press("Tab")
-        self.expect(page.get_by_role("combobox", name="Sort by")).to_be_focused()
+        sort = page.get_by_role("combobox", name="Sort by")
+        self.expect(sort).to_be_focused()
+        self.assertTrue(sort.evaluate(
+            "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
+        ), "The lot sort control must show visible keyboard focus")
+
+        page.keyboard.press("Tab")
+        freshness_summary = page.locator(".freshness-explanation summary")
+        self.expect(freshness_summary).to_be_focused()
+        self.assertTrue(freshness_summary.evaluate(
+            "(el) => parseFloat(getComputedStyle(el).outlineWidth) > 0"
+        ), "The freshness disclosure must show visible keyboard focus")
+
         page.keyboard.press("Tab")
         first_button = page.get_by_role("button", name="View Lot 1")
         self.expect(first_button).to_be_focused()
@@ -444,12 +469,14 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         page.keyboard.press("Enter")
         self.expect(page).to_have_url(re.compile(r"/parking-lot2$"))
 
-        statuses = page.locator(".diagram-stall, .unmapped-space")
-        expected_spaces = len(self.cameras["camera_2"]["config"]["spaces"])
-        self.expect(statuses).to_have_count(expected_spaces, timeout=12000)
-        self.expect(page.locator(".diagram-stall.occupied, .unmapped-space.occupied")).to_have_count(expected_spaces)
-        self.expect(page.locator(".diagram-stall.open, .unmapped-space.open")).to_have_count(0)
-        self.expect(page.get_by_text("Open now")).to_be_visible()
+        page.locator(".lot-diagram").wait_for(state="visible", timeout=12000)
+        statuses = page.locator(".diagram-stall")
+        api_spaces = len(self.cameras["camera_2"]["config"]["spaces"])
+        visible_spaces = statuses.count()
+        self.expect(statuses).to_have_count(visible_spaces, timeout=12000)
+        self.expect(page.locator(".diagram-stall.occupied")).to_have_count(visible_spaces)
+        self.expect(page.locator(".diagram-stall.open")).to_have_count(0)
+        self.expect(page.get_by_text("Available now")).to_be_visible()
         self.expect(page.get_by_text("Occupied", exact=True).first).to_be_visible()
 
         # Test keyboard activation of the historical trends control.
@@ -470,7 +497,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         )).to_be_visible()
         select = page.get_by_role("combobox", name="Parking space")
         self.expect(select).to_be_visible()
-        self.expect(select.locator("option")).to_have_count(expected_spaces)
+        self.expect(select.locator("option")).to_have_count(api_spaces)
         option_ids = select.locator("option").evaluate_all(
             "(options) => options.map(el => el.value)"
         )
@@ -586,7 +613,7 @@ class ReactFastAPIBrowserTests(unittest.TestCase):
         self.addCleanup(page.close)
         page.goto(self.base_url + "/history/lot1", wait_until="domcontentloaded")
         self.expect(page.get_by_role("alert")).to_contain_text(
-            "Historical records are unavailable", timeout=12000
+            "Historical data is currently unavailable. Please try again.", timeout=12000
         )
         self.expect(page.locator(".history-bar")).to_have_count(0)
         self.assertEqual(

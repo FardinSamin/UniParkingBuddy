@@ -10,6 +10,7 @@ export interface ParkingStatusResponse {
   parking_spaces: ParkingSpaceStatus[]
   vehicles_in_spaces?: number
   vehicles_outside_spaces?: number
+  observed_at?: string
 }
 
 function isParkingSpace(value: unknown): value is ParkingSpaceStatus {
@@ -63,6 +64,13 @@ function parseParkingStatus(value: unknown): ParkingStatusResponse {
     }
   }
 
+  if (
+    data.observed_at !== undefined &&
+    (typeof data.observed_at !== 'string' || !Number.isFinite(Date.parse(data.observed_at)))
+  ) {
+    throw new Error('Invalid occupancy observation timestamp')
+  }
+
   return {
     cars_detected: data.cars_detected,
     parking_spaces: spaces,
@@ -70,6 +78,7 @@ function parseParkingStatus(value: unknown): ParkingStatusResponse {
       vehicles_in_spaces: data.vehicles_in_spaces as number,
       vehicles_outside_spaces: data.vehicles_outside_spaces as number,
     } : {}),
+    ...(typeof data.observed_at === 'string' ? { observed_at: data.observed_at } : {}),
   }
 }
 

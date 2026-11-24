@@ -117,6 +117,32 @@ test('vehicle breakdown is optional for older backend responses', async () => {
   )
 })
 
+test('backend observation timestamps are preserved when supplied', async () => {
+  const observedAt = '2026-11-17T16:30:00+00:00'
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 1,
+      parking_spaces: [{ id: 1, occupied: true }],
+      observed_at: observedAt,
+    }),
+    async () => {
+      const data = await fetchParkingStatus('camera_1')
+      assert.equal(data.observed_at, observedAt)
+    },
+  )
+})
+
+test('invalid optional observation timestamps are rejected', async () => {
+  await withMockFetch(
+    async () => reply({
+      cars_detected: 1,
+      parking_spaces: [{ id: 1, occupied: true }],
+      observed_at: 'not-a-time',
+    }),
+    async () => assert.rejects(fetchParkingStatus('camera_1')),
+  )
+})
+
 test('inconsistent vehicle breakdown is rejected', async () => {
   await withMockFetch(
     async () => reply({
